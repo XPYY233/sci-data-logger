@@ -263,3 +263,51 @@ def test_step_type_aliased_from_chinese(tmp_path: Path) -> None:
     page = DocumentProcessor(vlm_client=FakePayloadVLMClient(payload)).analyze_page(image_path)
     assert len(page.extracted_steps) == 1
     assert page.extracted_steps[0].step_type == "calcine"
+
+
+def test_catalog_parsing_from_vlm_payload(monkeypatch):
+    """模拟 VLM 返回新 schema payload，验证 PagePacket 填充 materials/instruments catalog。"""
+    from pathlib import Path
+    from sci_data_logger.services.document import DocumentProcessor
+    from sci_data_logger.vlm import QwenVLMClient
+
+    class FakeVLMClient(QwenVLMClient):
+        def __init__(self): pass
+        def analyze_image(self, image_path, prompt):
+            return {
+                "raw_text": "...",
+                "json": {
+                    "page_types": ["synthesis_note"],
+                    "sample_id": "Li2ZrCl6",
+                    "materials_catalog": [
+                        {"name": "LiCl", "canonical_name": "LiCl",
+                         "role": "precursor", "aliases": []},
+                        {"name": "ZrCl4", "canonical_name": "ZrCl4",
+                         "role": "precursor", "aliases": []},
+                    ],
+                    "instruments_catalog": [
+                        {"technique": "ball_mill", "instrument_label": "707",
+                         "model": "高能行星球磨"},
+                    ],
+                    "events": [],
+                    "extracted_dates": ["5.20"],
+                    "extracted_target_phases": ["P-3m1"],
+                    "text_blocks": ["..."],
+                    "table_blocks": [],
+                    "open_questions": [],
+                    "warnings": [],
+                    "review_required": False,
+                },
+                "model": "qwen3.6-plus",
+                "usage": None,
+            }
+
+    dp = DocumentProcessor(vlm_client=FakeVLMClient())
+    page = dp.analyze_page(Path("tests/test_data/147d9824a7b61f41c32e7e0b6f6dc59c.jpg"))
+    # New 字段被填充
+    assert page.sample_id == "Li2ZrCl6"
+    assert page.extracted_dates == ["5.20"]
+    assert page.extracted_target_phases == ["P-3m1"]
+    # raw_model_output 保留完整 JSON
+    assert page.raw_model_output["json"]["materials_catalog"][0]["name"] == "LiCl"
+    assert page.raw_model_output["json"]["instruments_catalog"][0]["instrument_label"] == "707"

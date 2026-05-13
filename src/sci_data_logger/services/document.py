@@ -75,6 +75,20 @@ class DocumentProcessor:
         table_blocks = self._normalize_table_blocks(payload.get("table_blocks", []))
         extracted_facts = self._facts_from_payload(payload.get("extracted_facts", {}), image_path)
 
+        # New schema parsing (Phase 0)
+        extracted_dates = self._strings_from_payload(payload.get("extracted_dates", []))
+        extracted_locations = self._strings_from_payload(payload.get("extracted_locations", []))
+        extracted_batches = self._strings_from_payload(payload.get("extracted_batches", []))
+        extracted_equations = self._strings_from_payload(payload.get("extracted_equations", []))
+        extracted_target_phases = self._strings_from_payload(payload.get("extracted_target_phases", []))
+        # failure markers / recipe_ratios: list[dict]
+        extracted_failure_markers = payload.get("extracted_failure_markers") or []
+        if not isinstance(extracted_failure_markers, list):
+            extracted_failure_markers = []
+        extracted_recipe_ratios = payload.get("extracted_recipe_ratios") or []
+        if not isinstance(extracted_recipe_ratios, list):
+            extracted_recipe_ratios = []
+
         page_types_raw = payload.get("page_type") or payload.get("page_types") or ["unknown"]
         page_types = page_types_raw if isinstance(page_types_raw, list) else [str(page_types_raw)]
         page_types = [str(pt) for pt in page_types] or ["unknown"]
@@ -103,6 +117,14 @@ class DocumentProcessor:
             extracted_observations=observations,
             extracted_instruments=instruments,
             extracted_facts=extracted_facts,
+            extracted_dates=extracted_dates,
+            extracted_locations=extracted_locations,
+            extracted_batches=extracted_batches,
+            extracted_equations=extracted_equations,
+            extracted_target_phases=extracted_target_phases,
+            extracted_failure_markers=[d for d in extracted_failure_markers if isinstance(d, dict)],
+            extracted_recipe_ratios=[d for d in extracted_recipe_ratios if isinstance(d, dict)],
+            # extracted_events will be added in Task 10
             open_questions=self._dedupe(open_questions),
             warnings=self._dedupe(warnings),
             review_required=review_required,
