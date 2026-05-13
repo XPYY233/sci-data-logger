@@ -98,6 +98,17 @@ class InstrumentProfile(BaseModel):
     defaults: dict[str, Any] = Field(default_factory=dict)
 
 
+class Instrument(BaseModel):
+    """Catalog-level instrument entry. `instrument_label` 例如实验室内的红圈编号 '707'。"""
+    instrument_id: str = Field(default_factory=lambda: new_id("instr"))
+    technique: str           # ball_mill / xrd / sem / raman / eis / heat_treatment / weigh / other
+    instrument_label: str | None = None
+    location: str | None = None
+    manufacturer: str | None = None
+    model: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class MeasurementPacket(BaseModel):
     run_id: str = Field(default_factory=lambda: new_id("run"))
     source_path: str

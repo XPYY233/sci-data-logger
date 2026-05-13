@@ -48,3 +48,20 @@ def test_material_defaults_and_required_fields():
                   role="precursor")
     assert m2.role == "precursor"
     assert "LiCl·H2O" in m2.aliases
+
+
+def test_instrument_defaults_and_label_split():
+    """关键场景：'707球磨' 必须能拆成 technique=ball_mill + instrument_label='707'."""
+    from sci_data_logger.schemas import Instrument
+
+    ins = Instrument(technique="ball_mill", instrument_label="707",
+                     model="高能行星球磨")
+    assert ins.technique == "ball_mill"
+    assert ins.instrument_label == "707"
+    assert ins.location is None
+    assert ins.model == "高能行星球磨"
+    assert ins.instrument_id.startswith("instr_")
+
+    import pytest
+    with pytest.raises(Exception):
+        Instrument()
