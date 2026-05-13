@@ -5,6 +5,7 @@ from sci_data_logger.schemas import (
     DraftExperimentRequest,
     ExperimentEvent,
     ExperimentRecord,
+    Instrument,
     Material,
     PagePacket,
     ReviewIssue,
@@ -40,6 +41,7 @@ class ExperimentOrchestrator:
         # Phase 0 桥接：把每页的 extracted_materials/extracted_steps 升格到 catalog/events。
         # 真正的 catalog 去重 + ref 解析在后续 Task 8-13 实现；此处先用 legacy 桥接保住兼容。
         materials_catalog = self._merge_materials_catalog(pages)
+        instruments_catalog = self._merge_instruments_catalog(pages)
         events = self._legacy_steps_to_events(pages)
 
         record = ExperimentRecord(
@@ -51,7 +53,7 @@ class ExperimentOrchestrator:
             source_assets=source_assets,
             pages=pages,
             materials_catalog=materials_catalog,
-            instruments_catalog=[],   # Task 12 will fill
+            instruments_catalog=instruments_catalog,
             events=events,
             measurements=measurements,
             metadata={"user_fields": request.user_fields},
@@ -105,6 +107,30 @@ class ExperimentOrchestrator:
                 else:
                     combined = list(dict.fromkeys([*existing.aliases, *new_aliases]))
                     existing.aliases = combined
+        return list(seen.values())
+
+    @staticmethod
+    def _merge_instruments_catalog(pages: list[PagePacket]) -> list[Instrument]:
+        """跨页合并 instruments_catalog，去重 key: (technique, instrument_label)。"""
+        seen: dict[tuple[str, str | None], Instrument] = {}
+        for page in pages:
+            catalog_items = (
+                (page.raw_model_output or {}).get("json", {}).get("instruments_catalog") or []
+            )
+            for raw in catalog_items:
+                if not isinstance(raw, dict):
+                    continue
+                tech = (raw.get("technique") or "other").strip()
+                label = raw.get("instrument_label")
+                key = (tech, label)
+                if key not in seen:
+                    seen[key] = Instrument(
+                        technique=tech,
+                        instrument_label=label,
+                        location=raw.get("location"),
+                        manufacturer=raw.get("manufacturer"),
+                        model=raw.get("model"),
+                    )
         return list(seen.values())
 
     @staticmethod
