@@ -3,6 +3,8 @@ from __future__ import annotations
 from sci_data_logger.schemas import (
     DataAsset,
     DraftExperimentRequest,
+    EventIO,
+    EventOutput,
     ExperimentEvent,
     ExperimentRecord,
     Instrument,
@@ -38,11 +40,11 @@ class ExperimentOrchestrator:
         ]
         source_assets.extend(asset for packet in measurements for asset in packet.assets)
 
-        # Phase 0 桥接：把每页的 extracted_materials/extracted_steps 升格到 catalog/events。
-        # 真正的 catalog 去重 + ref 解析在后续 Task 8-13 实现；此处先用 legacy 桥接保住兼容。
         materials_catalog = self._merge_materials_catalog(pages)
         instruments_catalog = self._merge_instruments_catalog(pages)
-        events = self._legacy_steps_to_events(pages)
+        events, extra_issues = self._resolve_and_merge_events(
+            pages, materials_catalog, instruments_catalog
+        )
 
         record = ExperimentRecord(
             experiment_id=request.experiment_id,
@@ -59,6 +61,7 @@ class ExperimentOrchestrator:
             metadata={"user_fields": request.user_fields},
         )
         record.review_issues.extend(self._basic_review(record))
+        record.review_issues.extend(extra_issues)
         if record.review_issues:
             record.status = ReviewStatus.NEEDS_REVIEW
         return record
@@ -133,27 +136,139 @@ class ExperimentOrchestrator:
                     )
         return list(seen.values())
 
-    @staticmethod
-    def _legacy_steps_to_events(pages: list[PagePacket]) -> list[ExperimentEvent]:
-        """Phase 0 bridge: PagePacket.extracted_steps -> ExperimentEvent (no I/O resolution yet)."""
-        merged: list[ExperimentEvent] = []
+    def _resolve_and_merge_events(
+        self,
+        pages: list[PagePacket],
+        materials_catalog: list[Material],
+        instruments_catalog: list[Instrument],
+    ) -> tuple[list[ExperimentEvent], list[ReviewIssue]]:
+        """Resolve page.extracted_events local refs to catalog IDs, global sort.
+
+        Returns (events, extra_review_issues). Catalogs may be mutated (auto-add).
+        """
+        import unicodedata
+        from sci_data_logger.utils.date_heuristics import label_to_iso
+
+        issues: list[ReviewIssue] = []
+
+        def _norm(s: str) -> str:
+            nfkd = unicodedata.normalize("NFKD", s)
+            return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+        def find_material(ref: str) -> Material | None:
+            if not ref:
+                return None
+            ref_norm = ref.strip()
+            ref_lower = ref_norm.lower()
+            # 1. canonical_name exact
+            for m in materials_catalog:
+                if m.canonical_name.strip().lower() == ref_lower:
+                    return m
+            # 2. aliases exact
+            for m in materials_catalog:
+                if any(a.strip().lower() == ref_lower for a in m.aliases):
+                    return m
+            # 3. unicode NFKD strip
+            ref_strip = _norm(ref_norm)
+            for m in materials_catalog:
+                if _norm(m.canonical_name) == ref_strip:
+                    return m
+                if any(_norm(a) == ref_strip for a in m.aliases):
+                    return m
+            return None
+
+        def find_or_create_material(ref: str) -> Material:
+            m = find_material(ref)
+            if m is not None:
+                return m
+            new_mat = Material(canonical_name=ref.strip())
+            materials_catalog.append(new_mat)
+            issues.append(ReviewIssue(
+                severity="warning",
+                title="Material reference auto-created",
+                detail=f"Material reference '{ref}' unresolved in catalog; auto-created entry. 请人工核对。",
+            ))
+            return new_mat
+
+        def find_instrument(ref: str | None) -> Instrument | None:
+            if not ref:
+                return None
+            ref_lower = ref.strip().lower()
+            for ins in instruments_catalog:
+                tokens = [
+                    f"{ins.technique}@{ins.instrument_label}" if ins.instrument_label else None,
+                    ins.instrument_label,
+                    ins.model,
+                    ins.technique,
+                ]
+                for tok in tokens:
+                    if tok and tok.strip().lower() == ref_lower:
+                        return ins
+            return None
+
+        # Fallback: pages without extracted_events but with extracted_steps (legacy) -> upgrade
         for page in pages:
-            for step in sorted(page.extracted_steps, key=lambda s: s.sequence_index):
-                merged.append(ExperimentEvent(
-                    sequence_index=len(merged) + 1,
-                    action_type=step.step_type,
-                    description=step.description,
-                    parameters=step.parameters,
-                    page_ref=page.page_id,
-                    evidence_refs=step.evidence_refs,
-                    confidence=step.confidence,
-                    inputs=[],   # ref resolution in Task 13
-                    outputs=[],
-                    observations=[
-                        obs for obs in page.extracted_observations
-                    ] if step.sequence_index == 1 else [],
-                ))
-        return merged
+            if not page.extracted_events and page.extracted_steps:
+                for step in sorted(page.extracted_steps, key=lambda s: s.sequence_index):
+                    page.extracted_events.append(ExperimentEvent(
+                        sequence_index=step.sequence_index,
+                        action_type=step.step_type,
+                        description=step.description,
+                        parameters=step.parameters,
+                        page_ref=page.page_id,
+                        evidence_refs=step.evidence_refs,
+                        confidence=step.confidence,
+                        observations=list(page.extracted_observations)
+                        if step.sequence_index == 1
+                        else [],
+                    ))
+
+        # Collect, resolve refs
+        all_events: list[tuple[int, ExperimentEvent]] = []
+        for page_idx, page in enumerate(pages):
+            for evt in page.extracted_events:
+                new_inputs = []
+                for io in evt.inputs:
+                    mat = find_or_create_material(io.material_ref)
+                    new_inputs.append(EventIO(
+                        material_ref=mat.material_id,
+                        amount=io.amount,
+                        notes=io.notes,
+                    ))
+                new_outputs = []
+                for io in evt.outputs:
+                    mat = find_or_create_material(io.material_ref)
+                    new_outputs.append(EventOutput(
+                        material_ref=mat.material_id,
+                        amount=io.amount,
+                        notes=io.notes,
+                        target_phase=io.target_phase,
+                        failure_marker=io.failure_marker,
+                    ))
+                instr_id = evt.instrument_ref
+                if instr_id:
+                    ins = find_instrument(instr_id)
+                    instr_id = ins.instrument_id if ins else None
+                new_date_iso = evt.date_iso or label_to_iso(evt.date_label)
+                new_evt = evt.model_copy(update={
+                    "inputs": new_inputs,
+                    "outputs": new_outputs,
+                    "instrument_ref": instr_id,
+                    "date_iso": new_date_iso,
+                })
+                all_events.append((page_idx, new_evt))
+
+        # Global sort: date_iso priority; missing -> (page_idx, sequence_index)
+        def sort_key(item):
+            page_idx, e = item
+            iso = e.date_iso or ""
+            return (iso == "", iso, page_idx, e.sequence_index)
+
+        all_events.sort(key=sort_key)
+        final: list[ExperimentEvent] = []
+        for new_idx, (_, e) in enumerate(all_events, start=1):
+            final.append(e.model_copy(update={"sequence_index": new_idx}))
+        return final, issues
 
     @staticmethod
     def _basic_review(record: ExperimentRecord) -> list[ReviewIssue]:
