@@ -203,20 +203,63 @@ class ReviewIssue(BaseModel):
 
 
 class ExperimentRecord(BaseModel):
+    """Experiment draft. V0: keeps materials/steps/observations as derived properties for backward compat."""
+
     experiment_id: str
     project_id: str | None = None
     group_id: str | None = None
     operator: str | None = None
     title: str | None = None
     status: ReviewStatus = ReviewStatus.DRAFT
+
+    # New event-centric tables (Phase 0)
+    materials_catalog: list[Material] = Field(default_factory=list)
+    instruments_catalog: list[Instrument] = Field(default_factory=list)
+    events: list[ExperimentEvent] = Field(default_factory=list)
+
+    # Source / measurement (unchanged)
     source_assets: list[DataAsset] = Field(default_factory=list)
     pages: list[PagePacket] = Field(default_factory=list)
-    materials: list[MaterialInput] = Field(default_factory=list)
-    steps: list[ProtocolStep] = Field(default_factory=list)
     measurements: list[MeasurementPacket] = Field(default_factory=list)
-    observations: list[FieldValue] = Field(default_factory=list)
     review_issues: list[ReviewIssue] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    # === Backward-compat derived properties (V0 only; deprecate in Phase 3) ===
+    @property
+    def materials(self) -> list[MaterialInput]:
+        return [
+            MaterialInput(
+                name=m.canonical_name,
+                role=m.role,
+                amount=None,
+                metadata={
+                    "aliases": m.aliases,
+                    "chemical_formula": m.chemical_formula,
+                    **(m.metadata or {}),
+                },
+            )
+            for m in self.materials_catalog
+        ]
+
+    @property
+    def steps(self) -> list[ProtocolStep]:
+        return [
+            ProtocolStep(
+                step_type=e.action_type,
+                sequence_index=e.sequence_index,
+                description=e.description,
+                inputs=[io.material_ref for io in e.inputs],
+                outputs=[io.material_ref for io in e.outputs],
+                parameters=e.parameters,
+                evidence_refs=e.evidence_refs,
+                confidence=e.confidence,
+            )
+            for e in self.events
+        ]
+
+    @property
+    def observations(self) -> list[FieldValue]:
+        return [obs for e in self.events for obs in e.observations]
 
 
 class DraftExperimentRequest(BaseModel):

@@ -145,3 +145,45 @@ def test_page_packet_new_extracted_fields_default_empty():
     assert p.extracted_failure_markers == []
     assert p.extracted_recipe_ratios == []
     assert p.extracted_events == []
+
+
+def test_experiment_record_catalogs_and_compat_properties():
+    from sci_data_logger.schemas import (
+        ExperimentRecord, Material, Instrument, ExperimentEvent,
+        EventIO, EventOutput, FieldValue,
+    )
+
+    # 空 catalogs：兼容 property 退化为空
+    rec = ExperimentRecord(experiment_id="EXP-0")
+    assert rec.materials_catalog == []
+    assert rec.instruments_catalog == []
+    assert rec.events == []
+    assert rec.materials == []   # property 派生
+    assert rec.steps == []
+    assert rec.observations == []
+
+    # 填充 catalog + events
+    mat_a = Material(canonical_name="LiCl", role="precursor")
+    mat_b = Material(canonical_name="Li2ZrCl6", role="target")
+    evt = ExperimentEvent(
+        sequence_index=1,
+        action_type="mill",
+        description="球磨",
+        page_ref="page_xxx",
+        inputs=[EventIO(material_ref=mat_a.material_id)],
+        outputs=[EventOutput(material_ref=mat_b.material_id, failure_marker="X")],
+        observations=[FieldValue(value="没合成", confidence=0.9)],
+    )
+    rec2 = ExperimentRecord(
+        experiment_id="EXP-1",
+        materials_catalog=[mat_a, mat_b],
+        events=[evt],
+    )
+    assert len(rec2.materials) == 2
+    assert {m.name for m in rec2.materials} == {"LiCl", "Li2ZrCl6"}
+    assert len(rec2.steps) == 1
+    assert rec2.steps[0].step_type == "mill"
+    assert rec2.steps[0].description == "球磨"
+    assert rec2.steps[0].sequence_index == 1
+    assert len(rec2.observations) == 1
+    assert rec2.observations[0].value == "没合成"

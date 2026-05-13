@@ -3,10 +3,10 @@ from __future__ import annotations
 from sci_data_logger.schemas import (
     DataAsset,
     DraftExperimentRequest,
+    ExperimentEvent,
     ExperimentRecord,
-    MaterialInput,
+    Material,
     PagePacket,
-    ProtocolStep,
     ReviewIssue,
     ReviewStatus,
     SourceType,
@@ -37,9 +37,10 @@ class ExperimentOrchestrator:
         ]
         source_assets.extend(asset for packet in measurements for asset in packet.assets)
 
-        materials = self._merge_materials(pages)
-        steps = self._merge_steps(pages)
-        observations = [obs for page in pages for obs in page.extracted_observations]
+        # Phase 0 桥接：把每页的 extracted_materials/extracted_steps 升格到 catalog/events。
+        # 真正的 catalog 去重 + ref 解析在后续 Task 8-13 实现；此处先用 legacy 桥接保住兼容。
+        materials_catalog = self._legacy_materials_to_catalog(pages)
+        events = self._legacy_steps_to_events(pages)
 
         record = ExperimentRecord(
             experiment_id=request.experiment_id,
@@ -49,9 +50,9 @@ class ExperimentOrchestrator:
             title=request.title,
             source_assets=source_assets,
             pages=pages,
-            materials=materials,
-            steps=steps,
-            observations=observations,
+            materials_catalog=materials_catalog,
+            instruments_catalog=[],   # Task 12 will fill
+            events=events,
             measurements=measurements,
             metadata={"user_fields": request.user_fields},
         )
@@ -61,21 +62,40 @@ class ExperimentOrchestrator:
         return record
 
     @staticmethod
-    def _merge_materials(pages: list[PagePacket]) -> list[MaterialInput]:
-        seen: dict[tuple[str, str | None], MaterialInput] = {}
+    def _legacy_materials_to_catalog(pages: list[PagePacket]) -> list[Material]:
+        """Phase 0 bridge: PagePacket.extracted_materials -> Material catalog."""
+        seen: dict[tuple[str, str | None], Material] = {}
         for page in pages:
             for mat in page.extracted_materials:
                 key = (mat.name.strip(), mat.role)
                 if key not in seen:
-                    seen[key] = mat
+                    seen[key] = Material(
+                        canonical_name=mat.name.strip(),
+                        role=mat.role,
+                        metadata=mat.metadata or {},
+                    )
         return list(seen.values())
 
     @staticmethod
-    def _merge_steps(pages: list[PagePacket]) -> list[ProtocolStep]:
-        merged: list[ProtocolStep] = []
+    def _legacy_steps_to_events(pages: list[PagePacket]) -> list[ExperimentEvent]:
+        """Phase 0 bridge: PagePacket.extracted_steps -> ExperimentEvent (no I/O resolution yet)."""
+        merged: list[ExperimentEvent] = []
         for page in pages:
             for step in sorted(page.extracted_steps, key=lambda s: s.sequence_index):
-                merged.append(step.model_copy(update={"sequence_index": len(merged) + 1}))
+                merged.append(ExperimentEvent(
+                    sequence_index=len(merged) + 1,
+                    action_type=step.step_type,
+                    description=step.description,
+                    parameters=step.parameters,
+                    page_ref=page.page_id,
+                    evidence_refs=step.evidence_refs,
+                    confidence=step.confidence,
+                    inputs=[],   # ref resolution in Task 13
+                    outputs=[],
+                    observations=[
+                        obs for obs in page.extracted_observations
+                    ] if step.sequence_index == 1 else [],
+                ))
         return merged
 
     @staticmethod
