@@ -65,3 +65,20 @@ def test_instrument_defaults_and_label_split():
     import pytest
     with pytest.raises(Exception):
         Instrument()
+
+
+def test_event_io_models():
+    from sci_data_logger.schemas import EventIO, EventOutput, FieldValue
+
+    io = EventIO(material_ref="mat_abc", amount=FieldValue(value=1.5, unit="g"))
+    assert io.material_ref == "mat_abc"
+    assert io.amount.value == 1.5
+    assert io.notes is None
+
+    out = EventOutput(material_ref="mat_xyz",
+                     amount=FieldValue(value=2.5, unit="g"),
+                     target_phase="P-3m1",
+                     failure_marker="没合成")
+    assert out.target_phase == "P-3m1"
+    assert out.failure_marker == "没合成"
+    assert out.material_ref == "mat_xyz"

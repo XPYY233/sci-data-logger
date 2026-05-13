@@ -109,6 +109,19 @@ class Instrument(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class EventIO(BaseModel):
+    """Event input/output edge — references a Material by id, optionally with amount."""
+    material_ref: str
+    amount: FieldValue | None = None
+    notes: str | None = None
+
+
+class EventOutput(EventIO):
+    """Output edge with additional product-level fields."""
+    target_phase: str | None = None
+    failure_marker: str | None = None
+
+
 class MeasurementPacket(BaseModel):
     run_id: str = Field(default_factory=lambda: new_id("run"))
     source_path: str
