@@ -1,8 +1,6 @@
-from pathlib import Path
 
 from sci_data_logger.schemas import (
     DraftExperimentRequest,
-    Material,
     PagePacket,
 )
 from sci_data_logger.services.orchestrator import ExperimentOrchestrator
@@ -134,7 +132,6 @@ def test_resolve_events_links_local_refs_to_catalog_ids(tmp_path):
 
 def test_end_to_end_event_centric_record_from_mock_vlm(tmp_path, monkeypatch):
     """完整路径：mock VLM → DocumentProcessor → Orchestrator → ExperimentRecord."""
-    from pathlib import Path
     from sci_data_logger.services.document import DocumentProcessor
     from sci_data_logger.vlm import QwenVLMClient
 
