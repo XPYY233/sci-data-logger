@@ -82,3 +82,48 @@ def test_event_io_models():
     assert out.target_phase == "P-3m1"
     assert out.failure_marker == "没合成"
     assert out.material_ref == "mat_xyz"
+
+
+def test_experiment_event_defaults_and_required():
+    from sci_data_logger.schemas import (
+        ExperimentEvent, EventIO, EventOutput, FieldValue
+    )
+
+    e = ExperimentEvent(
+        sequence_index=1,
+        action_type="mill",
+        description="600rpm 15h 高能行星球磨",
+        page_ref="page_xxx",
+    )
+    assert e.event_id.startswith("evt_")
+    assert e.sequence_index == 1
+    assert e.date_label is None
+    assert e.date_iso is None
+    assert e.location is None
+    assert e.instrument_ref is None
+    assert e.operator is None
+    assert e.inputs == []
+    assert e.outputs == []
+    assert e.parameters == {}
+    assert e.recipe_ratio is None
+    assert e.equation is None
+    assert e.observations == []
+    assert e.evidence_refs == []
+    assert e.confidence is None
+
+    full = ExperimentEvent(
+        sequence_index=2,
+        date_label="5.20",
+        action_type="mill",
+        description="...",
+        page_ref="page_yyy",
+        inputs=[EventIO(material_ref="mat_a")],
+        outputs=[EventOutput(material_ref="mat_b", failure_marker="X")],
+        parameters={"speed": FieldValue(value=600, unit="rpm")},
+        equation="A + B = C",
+        recipe_ratio={"target_element": "Na", "excess_pct": 7},
+        confidence=0.9,
+    )
+    assert full.equation == "A + B = C"
+    assert full.recipe_ratio["excess_pct"] == 7
+    assert full.outputs[0].failure_marker == "X"

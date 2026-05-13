@@ -122,6 +122,36 @@ class EventOutput(EventIO):
     failure_marker: str | None = None
 
 
+class ExperimentEvent(BaseModel):
+    """Atomic unit of the experiment timeline."""
+    event_id: str = Field(default_factory=lambda: new_id("evt"))
+    sequence_index: int
+
+    # Time + space anchors
+    date_label: str | None = None
+    date_iso: str | None = None
+    location: str | None = None
+    instrument_ref: str | None = None
+    operator: str | None = None
+
+    # Body
+    action_type: str
+    description: str
+    inputs: list[EventIO] = Field(default_factory=list)
+    outputs: list[EventOutput] = Field(default_factory=list)
+    parameters: dict[str, FieldValue] = Field(default_factory=dict)
+
+    # Edge-case semantic fields
+    recipe_ratio: dict[str, Any] | None = None
+    equation: str | None = None
+
+    observations: list[FieldValue] = Field(default_factory=list)
+
+    page_ref: str
+    evidence_refs: list[EvidenceRef] = Field(default_factory=list)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+
 class MeasurementPacket(BaseModel):
     run_id: str = Field(default_factory=lambda: new_id("run"))
     source_path: str
