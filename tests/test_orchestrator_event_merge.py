@@ -130,3 +130,92 @@ def test_resolve_events_links_local_refs_to_catalog_ids(tmp_path):
         "unresolved" in (i.detail or "").lower() or "ZrCl4" in (i.detail or "")
         for i in record.review_issues
     )
+
+
+def test_end_to_end_event_centric_record_from_mock_vlm(tmp_path, monkeypatch):
+    """完整路径：mock VLM → DocumentProcessor → Orchestrator → ExperimentRecord."""
+    from pathlib import Path
+    from sci_data_logger.services.document import DocumentProcessor
+    from sci_data_logger.vlm import QwenVLMClient
+
+    class FakeVLMClient(QwenVLMClient):
+        def __init__(self): pass
+        def analyze_image(self, image_path, prompt):
+            return {
+                "raw_text": "...",
+                "json": {
+                    "page_types": ["synthesis_note", "calculation"],
+                    "sample_id": "Li2ZrCl6",
+                    "materials_catalog": [
+                        {"canonical_name": "LiCl", "role": "precursor"},
+                        {"canonical_name": "ZrCl4", "role": "precursor"},
+                        {"canonical_name": "Li2ZrCl6", "role": "target"},
+                    ],
+                    "instruments_catalog": [
+                        {"technique": "ball_mill", "instrument_label": "707",
+                         "model": "高能行星球磨"},
+                    ],
+                    "events": [
+                        {
+                            "sequence_index": 1,
+                            "date_label": "5.20",
+                            "action_type": "mill",
+                            "description": "600rpm 15h",
+                            "instrument_ref_local": "ball_mill@707",
+                            "inputs": [{"material_ref_local": "LiCl"},
+                                       {"material_ref_local": "ZrCl4"}],
+                            "outputs": [{"material_ref_local": "Li2ZrCl6",
+                                         "failure_marker": "没合成"}],
+                            "parameters": {"speed": {"value": 600, "unit": "rpm"}},
+                            "equation": "2LiCl + ZrCl4 = Li2ZrCl6",
+                            "confidence": 0.9,
+                        }
+                    ],
+                    "extracted_dates": ["5.20"],
+                    "extracted_target_phases": ["P-3m1"],
+                    "extracted_failure_markers": [{"marker": "X", "target": "Li2ZrCl6"}],
+                    "text_blocks": [],
+                    "table_blocks": [],
+                    "open_questions": [],
+                    "warnings": [],
+                    "review_required": True,
+                },
+                "model": "qwen3.6-plus",
+                "usage": None,
+            }
+
+    img = tmp_path / "fake.jpg"
+    img.write_bytes(b"x")
+    dp = DocumentProcessor(vlm_client=FakeVLMClient())
+    orch = ExperimentOrchestrator(document_processor=dp)
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="E2E-EVENT", image_paths=[img],
+    ))
+
+    # Top-level catalogs
+    assert {m.canonical_name for m in record.materials_catalog} == {"LiCl", "ZrCl4", "Li2ZrCl6"}
+    assert len(record.instruments_catalog) == 1
+    assert record.instruments_catalog[0].instrument_label == "707"
+
+    # Events resolved
+    assert len(record.events) == 1
+    e = record.events[0]
+    assert e.action_type == "mill"
+    assert e.date_iso == "2026-05-20"
+    assert e.equation == "2LiCl + ZrCl4 = Li2ZrCl6"
+    licl_id = next(m for m in record.materials_catalog if m.canonical_name == "LiCl").material_id
+    assert e.inputs[0].material_ref == licl_id
+    instr_id = record.instruments_catalog[0].instrument_id
+    assert e.instrument_ref == instr_id
+
+    # Compat properties
+    assert len(record.materials) == 3
+    assert len(record.steps) == 1
+    assert record.steps[0].step_type == "mill"
+
+    # PagePacket new fields populated
+    assert "5.20" in record.pages[0].extracted_dates
+    assert "P-3m1" in record.pages[0].extracted_target_phases
+
+    # Status
+    assert record.status.value == "needs_review"
