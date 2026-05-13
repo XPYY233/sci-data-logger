@@ -11,6 +11,7 @@ from sci_data_logger.schemas import (
     PagePacket,
     ProtocolStep,
     SourceType,
+    new_id,
 )
 from sci_data_logger.vlm import QwenVLMClient
 
@@ -106,7 +107,14 @@ class DocumentProcessor:
         ):
             review_required = True
 
+        # Pre-generate page_id so we can attach it to events.page_ref
+        page_id = new_id("page")
+        extracted_events = self._events_from_payload(
+            payload.get("events", []), image_path, page_id
+        )
+
         page = PagePacket(
+            page_id=page_id,
             source_path=str(image_path),
             page_types=page_types,
             sample_id=payload.get("sample_id"),
@@ -124,7 +132,7 @@ class DocumentProcessor:
             extracted_target_phases=extracted_target_phases,
             extracted_failure_markers=[d for d in extracted_failure_markers if isinstance(d, dict)],
             extracted_recipe_ratios=[d for d in extracted_recipe_ratios if isinstance(d, dict)],
-            # extracted_events will be added in Task 10
+            extracted_events=extracted_events,
             open_questions=self._dedupe(open_questions),
             warnings=self._dedupe(warnings),
             review_required=review_required,
@@ -314,4 +322,98 @@ class DocumentProcessor:
                     else:
                         normalized_rows.append([str(row)])
             result.append({"title": tbl.get("title"), "rows": normalized_rows})
+        return result
+
+    def _events_from_payload(self, items, image_path, page_id):
+        """Parse VLM event list. material_ref_local / instrument_ref_local 保留为字符串，
+        留给 Orchestrator 解析到真正的 material_id / instrument_id。
+        """
+        from sci_data_logger.schemas import ExperimentEvent, EventIO, EventOutput
+
+        if not isinstance(items, list):
+            return []
+        result = []
+        for raw in items:
+            if not isinstance(raw, dict) or not raw.get("description"):
+                continue
+            # parameters
+            parameters = {}
+            for k, v in (raw.get("parameters") or {}).items():
+                if isinstance(v, dict):
+                    parameters[k] = FieldValue(
+                        value=v.get("value"),
+                        unit=v.get("unit"),
+                        confidence=v.get("confidence"),
+                    )
+            # inputs
+            inputs = []
+            for inp in raw.get("inputs") or []:
+                if not isinstance(inp, dict) or not inp.get("material_ref_local"):
+                    continue
+                amt_raw = inp.get("amount")
+                amt = None
+                if isinstance(amt_raw, dict) and amt_raw.get("value") is not None:
+                    amt = FieldValue(
+                        value=amt_raw.get("value"),
+                        unit=amt_raw.get("unit"),
+                        confidence=amt_raw.get("confidence"),
+                    )
+                inputs.append(EventIO(
+                    material_ref=str(inp["material_ref_local"]),
+                    amount=amt,
+                    notes=inp.get("notes"),
+                ))
+            # outputs
+            outputs = []
+            for outp in raw.get("outputs") or []:
+                if not isinstance(outp, dict) or not outp.get("material_ref_local"):
+                    continue
+                amt_raw = outp.get("amount")
+                amt = None
+                if isinstance(amt_raw, dict) and amt_raw.get("value") is not None:
+                    amt = FieldValue(
+                        value=amt_raw.get("value"),
+                        unit=amt_raw.get("unit"),
+                        confidence=amt_raw.get("confidence"),
+                    )
+                outputs.append(EventOutput(
+                    material_ref=str(outp["material_ref_local"]),
+                    amount=amt,
+                    notes=outp.get("notes"),
+                    target_phase=outp.get("target_phase"),
+                    failure_marker=outp.get("failure_marker"),
+                ))
+            # observations
+            obs_list = []
+            for ob in raw.get("observations") or []:
+                if isinstance(ob, dict):
+                    obs_list.append(FieldValue(
+                        value=ob.get("value"),
+                        unit=ob.get("unit"),
+                        confidence=ob.get("confidence"),
+                    ))
+                else:
+                    obs_list.append(FieldValue(value=str(ob)))
+            # action_type aliased via TermAliaser
+            action_type = self.term_aliaser.canonical_step_type(
+                raw.get("action_type") or raw.get("description", "")
+            )
+            result.append(ExperimentEvent(
+                sequence_index=int(raw.get("sequence_index") or len(result) + 1),
+                date_label=raw.get("date_label"),
+                date_iso=raw.get("date_iso"),
+                location=raw.get("location"),
+                instrument_ref=raw.get("instrument_ref_local"),
+                operator=raw.get("operator"),
+                action_type=action_type,
+                description=str(raw["description"]),
+                inputs=inputs,
+                outputs=outputs,
+                parameters=parameters,
+                recipe_ratio=raw.get("recipe_ratio") if isinstance(raw.get("recipe_ratio"), dict) else None,
+                equation=raw.get("equation"),
+                observations=obs_list,
+                page_ref=page_id,
+                confidence=raw.get("confidence"),
+            ))
         return result

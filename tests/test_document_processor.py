@@ -311,3 +311,65 @@ def test_catalog_parsing_from_vlm_payload(monkeypatch):
     # raw_model_output 保留完整 JSON
     assert page.raw_model_output["json"]["materials_catalog"][0]["name"] == "LiCl"
     assert page.raw_model_output["json"]["instruments_catalog"][0]["instrument_label"] == "707"
+
+
+def test_events_parsing_with_local_refs():
+    from pathlib import Path
+    from sci_data_logger.services.document import DocumentProcessor
+    from sci_data_logger.vlm import QwenVLMClient
+
+    class FakeVLMClient(QwenVLMClient):
+        def __init__(self): pass
+        def analyze_image(self, image_path, prompt):
+            return {
+                "raw_text": "...",
+                "json": {
+                    "page_types": ["synthesis_note"],
+                    "events": [
+                        {
+                            "sequence_index": 1,
+                            "date_label": "5.20",
+                            "action_type": "mill",
+                            "description": "球磨",
+                            "inputs": [
+                                {"material_ref_local": "LiCl",
+                                 "amount": {"value": 0.665, "unit": "g", "confidence": 0.9}},
+                            ],
+                            "outputs": [
+                                {"material_ref_local": "Li2ZrCl6",
+                                 "failure_marker": "没合成"},
+                            ],
+                            "parameters": {
+                                "speed": {"value": 600, "unit": "rpm", "confidence": 0.9}
+                            },
+                            "equation": "2LiCl + ZrCl4 = Li2ZrCl6",
+                            "confidence": 0.9,
+                        }
+                    ],
+                    "text_blocks": [],
+                    "table_blocks": [],
+                    "open_questions": [],
+                    "warnings": [],
+                    "review_required": False,
+                },
+                "model": "qwen3.6-plus",
+                "usage": None,
+            }
+
+    dp = DocumentProcessor(vlm_client=FakeVLMClient())
+    page = dp.analyze_page(Path("tests/test_data/147d9824a7b61f41c32e7e0b6f6dc59c.jpg"))
+    assert len(page.extracted_events) == 1
+    e = page.extracted_events[0]
+    assert e.action_type == "mill"
+    assert e.date_label == "5.20"
+    assert e.equation == "2LiCl + ZrCl4 = Li2ZrCl6"
+    assert e.confidence == 0.9
+    assert e.page_ref == page.page_id
+    # local refs 保留原字符串
+    assert len(e.inputs) == 1
+    assert e.inputs[0].material_ref == "LiCl"
+    assert e.inputs[0].amount.value == 0.665
+    assert len(e.outputs) == 1
+    assert e.outputs[0].material_ref == "Li2ZrCl6"
+    assert e.outputs[0].failure_marker == "没合成"
+    assert e.parameters["speed"].value == 600
