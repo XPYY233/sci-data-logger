@@ -127,3 +127,21 @@ def test_experiment_event_defaults_and_required():
     assert full.equation == "A + B = C"
     assert full.recipe_ratio["excess_pct"] == 7
     assert full.outputs[0].failure_marker == "X"
+
+
+def test_page_packet_new_extracted_fields_default_empty():
+    from sci_data_logger.schemas import PagePacket
+
+    p = PagePacket(source_path="x.jpg")
+    # 已有字段
+    assert p.page_types == ["unknown"]
+    assert p.sample_id is None
+    # 新增字段默认值
+    assert p.extracted_dates == []
+    assert p.extracted_locations == []
+    assert p.extracted_batches == []
+    assert p.extracted_equations == []
+    assert p.extracted_target_phases == []
+    assert p.extracted_failure_markers == []
+    assert p.extracted_recipe_ratios == []
+    assert p.extracted_events == []

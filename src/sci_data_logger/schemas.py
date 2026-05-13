@@ -179,6 +179,14 @@ class PagePacket(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     review_required: bool = False
     evidence_refs: list[EvidenceRef] = Field(default_factory=list)
+    extracted_dates: list[str] = Field(default_factory=list)
+    extracted_locations: list[str] = Field(default_factory=list)
+    extracted_batches: list[str] = Field(default_factory=list)
+    extracted_equations: list[str] = Field(default_factory=list)
+    extracted_target_phases: list[str] = Field(default_factory=list)
+    extracted_failure_markers: list[dict[str, Any]] = Field(default_factory=list)
+    extracted_recipe_ratios: list[dict[str, Any]] = Field(default_factory=list)
+    extracted_events: list[ExperimentEvent] = Field(default_factory=list)
     raw_model_output: dict[str, Any] = Field(default_factory=dict)
 
     @property
