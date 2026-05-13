@@ -62,6 +62,17 @@ class MaterialInput(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class Material(BaseModel):
+    """Catalog-level material entry, deduplicated across pages."""
+    material_id: str = Field(default_factory=lambda: new_id("mat"))
+    canonical_name: str
+    display_name: str | None = None
+    aliases: list[str] = Field(default_factory=list)
+    chemical_formula: str | None = None
+    role: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class ProtocolStep(BaseModel):
     step_id: str = Field(default_factory=lambda: new_id("step"))
     step_type: str

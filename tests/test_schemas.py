@@ -29,3 +29,22 @@ def test_page_packet_page_type_property_reads_first() -> None:
 def test_page_packet_page_type_property_on_empty_list() -> None:
     page = PagePacket(source_path="/tmp/x.jpg", page_types=[])
     assert page.page_type == "unknown"
+
+
+def test_material_defaults_and_required_fields():
+    from sci_data_logger.schemas import Material
+
+    m = Material(canonical_name="Mn2O3")
+    assert m.canonical_name == "Mn2O3"
+    assert m.display_name is None
+    assert m.aliases == []
+    assert m.chemical_formula is None
+    assert m.role is None
+    assert m.metadata == {}
+    assert m.material_id.startswith("mat_")
+
+    m2 = Material(canonical_name="LiCl", display_name="氯化锂",
+                  aliases=["LiCl·H2O"], chemical_formula="LiCl",
+                  role="precursor")
+    assert m2.role == "precursor"
+    assert "LiCl·H2O" in m2.aliases
