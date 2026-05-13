@@ -149,7 +149,7 @@ def test_page_packet_new_extracted_fields_default_empty():
 
 def test_experiment_record_catalogs_and_compat_properties():
     from sci_data_logger.schemas import (
-        ExperimentRecord, Material, Instrument, ExperimentEvent,
+        ExperimentRecord, Material, ExperimentEvent,
         EventIO, EventOutput, FieldValue,
     )
 

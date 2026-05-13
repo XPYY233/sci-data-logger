@@ -27,8 +27,10 @@ def test_merge_materials_catalog_deduplicates_across_pages(tmp_path):
         {"canonical_name": "Li2ZrCl6", "role": "target"},
     ]}}
 
-    img1 = tmp_path / "p1.jpg"; img1.write_bytes(b"x")
-    img2 = tmp_path / "p2.jpg"; img2.write_bytes(b"x")
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    img2 = tmp_path / "p2.jpg"
+    img2.write_bytes(b"x")
     orch = ExperimentOrchestrator(
         document_processor=_FakeDocumentProcessor([page1, page2]),
     )
@@ -51,8 +53,10 @@ def test_merge_instruments_catalog_dedup_by_technique_and_label(tmp_path):
         {"technique": "ball_mill", "instrument_label": None, "model": "其他"},
     ]}}
 
-    img1 = tmp_path / "p1.jpg"; img1.write_bytes(b"x")
-    img2 = tmp_path / "p2.jpg"; img2.write_bytes(b"x")
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    img2 = tmp_path / "p2.jpg"
+    img2.write_bytes(b"x")
     orch = ExperimentOrchestrator(
         document_processor=_FakeDocumentProcessor([page1, page2]),
     )
@@ -100,7 +104,8 @@ def test_resolve_events_links_local_refs_to_catalog_ids(tmp_path):
         ),
     ]
 
-    img1 = tmp_path / "p1.jpg"; img1.write_bytes(b"x")
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
     orch = ExperimentOrchestrator(
         document_processor=_FakeDocumentProcessor([page1]),
     )

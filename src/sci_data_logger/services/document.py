@@ -13,6 +13,7 @@ from sci_data_logger.schemas import (
     SourceType,
     new_id,
 )
+from sci_data_logger.services.term_aliaser import TermAliaser
 from sci_data_logger.vlm import QwenVLMClient
 
 
@@ -26,9 +27,8 @@ class DocumentProcessor:
     def __init__(
         self,
         vlm_client: QwenVLMClient | None = None,
-        term_aliaser: "TermAliaser | None" = None,
+        term_aliaser: TermAliaser | None = None,
     ) -> None:
-        from sci_data_logger.services.term_aliaser import TermAliaser
         self.vlm_client = vlm_client or QwenVLMClient()
         self.term_aliaser = term_aliaser or TermAliaser()
 
