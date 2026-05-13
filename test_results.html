@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>test_results</title>
+<style>
+:root {
+  --bg: #fafafa;
+  --fg: #1f2328;
+  --muted: #57606a;
+  --border: #d0d7de;
+  --accent: #0969da;
+  --code-bg: #f6f8fa;
+  --code-fg: #1f2328;
+  --table-stripe: #f6f8fa;
+}
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 0;
+  padding: 0;
+}
+main {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 40px 32px 80px;
+}
+h1, h2, h3, h4, h5, h6 {
+  border-bottom: none;
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
+  line-height: 1.3;
+}
+h1 { font-size: 2.0em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: 0.25em; }
+h3 { font-size: 1.2em; }
+h4 { font-size: 1.05em; color: var(--muted); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+p, li { margin: 0.4em 0; }
+ul, ol { padding-left: 1.6em; }
+blockquote {
+  margin: 1em 0;
+  padding: 0.4em 1em;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+  background: var(--code-bg);
+}
+code {
+  font-family: "SF Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
+  font-size: 0.92em;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-size: 0.88em;
+  line-height: 1.55;
+}
+pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 1em;
+}
+table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  width: 100%;
+  font-size: 0.95em;
+}
+table th, table td {
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+table th {
+  background: var(--code-bg);
+  font-weight: 600;
+}
+table tr:nth-child(even) td { background: var(--table-stripe); }
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2em 0;
+}
+.toc {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 20px 12px 36px;
+  margin-bottom: 32px;
+  font-size: 0.92em;
+}
+.toc::before {
+  content: "目录";
+  display: block;
+  margin-left: -20px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.toc ul { padding-left: 1.2em; margin: 0; }
+.toc > ul { padding-left: 0; }
+.toc li { margin: 0.2em 0; }
+.footer {
+  margin-top: 60px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.85em;
+}
+pre { line-height: 125%; }
+td.linenos .normal { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
+span.linenos { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
+td.linenos .special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
+span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
+.highlight .hll { background-color: #ffffcc }
+.highlight { background: #f8f8f8; }
+.highlight .c { color: #3D7B7B; font-style: italic } /* Comment */
+.highlight .err { border: 1px solid #F00 } /* Error */
+.highlight .k { color: #008000; font-weight: bold } /* Keyword */
+.highlight .o { color: #666 } /* Operator */
+.highlight .ch { color: #3D7B7B; font-style: italic } /* Comment.Hashbang */
+.highlight .cm { color: #3D7B7B; font-style: italic } /* Comment.Multiline */
+.highlight .cp { color: #9C6500 } /* Comment.Preproc */
+.highlight .cpf { color: #3D7B7B; font-style: italic } /* Comment.PreprocFile */
+.highlight .c1 { color: #3D7B7B; font-style: italic } /* Comment.Single */
+.highlight .cs { color: #3D7B7B; font-style: italic } /* Comment.Special */
+.highlight .gd { color: #A00000 } /* Generic.Deleted */
+.highlight .ge { font-style: italic } /* Generic.Emph */
+.highlight .ges { font-weight: bold; font-style: italic } /* Generic.EmphStrong */
+.highlight .gr { color: #E40000 } /* Generic.Error */
+.highlight .gh { color: #000080; font-weight: bold } /* Generic.Heading */
+.highlight .gi { color: #008400 } /* Generic.Inserted */
+.highlight .go { color: #717171 } /* Generic.Output */
+.highlight .gp { color: #000080; font-weight: bold } /* Generic.Prompt */
+.highlight .gs { font-weight: bold } /* Generic.Strong */
+.highlight .gu { color: #800080; font-weight: bold } /* Generic.Subheading */
+.highlight .gt { color: #04D } /* Generic.Traceback */
+.highlight .kc { color: #008000; font-weight: bold } /* Keyword.Constant */
+.highlight .kd { color: #008000; font-weight: bold } /* Keyword.Declaration */
+.highlight .kn { color: #008000; font-weight: bold } /* Keyword.Namespace */
+.highlight .kp { color: #008000 } /* Keyword.Pseudo */
+.highlight .kr { color: #008000; font-weight: bold } /* Keyword.Reserved */
+.highlight .kt { color: #B00040 } /* Keyword.Type */
+.highlight .m { color: #666 } /* Literal.Number */
+.highlight .s { color: #BA2121 } /* Literal.String */
+.highlight .na { color: #687822 } /* Name.Attribute */
+.highlight .nb { color: #008000 } /* Name.Builtin */
+.highlight .nc { color: #00F; font-weight: bold } /* Name.Class */
+.highlight .no { color: #800 } /* Name.Constant */
+.highlight .nd { color: #A2F } /* Name.Decorator */
+.highlight .ni { color: #717171; font-weight: bold } /* Name.Entity */
+.highlight .ne { color: #CB3F38; font-weight: bold } /* Name.Exception */
+.highlight .nf { color: #00F } /* Name.Function */
+.highlight .nl { color: #767600 } /* Name.Label */
+.highlight .nn { color: #00F; font-weight: bold } /* Name.Namespace */
+.highlight .nt { color: #008000; font-weight: bold } /* Name.Tag */
+.highlight .nv { color: #19177C } /* Name.Variable */
+.highlight .ow { color: #A2F; font-weight: bold } /* Operator.Word */
+.highlight .w { color: #BBB } /* Text.Whitespace */
+.highlight .mb { color: #666 } /* Literal.Number.Bin */
+.highlight .mf { color: #666 } /* Literal.Number.Float */
+.highlight .mh { color: #666 } /* Literal.Number.Hex */
+.highlight .mi { color: #666 } /* Literal.Number.Integer */
+.highlight .mo { color: #666 } /* Literal.Number.Oct */
+.highlight .sa { color: #BA2121 } /* Literal.String.Affix */
+.highlight .sb { color: #BA2121 } /* Literal.String.Backtick */
+.highlight .sc { color: #BA2121 } /* Literal.String.Char */
+.highlight .dl { color: #BA2121 } /* Literal.String.Delimiter */
+.highlight .sd { color: #BA2121; font-style: italic } /* Literal.String.Doc */
+.highlight .s2 { color: #BA2121 } /* Literal.String.Double */
+.highlight .se { color: #AA5D1F; font-weight: bold } /* Literal.String.Escape */
+.highlight .sh { color: #BA2121 } /* Literal.String.Heredoc */
+.highlight .si { color: #A45A77; font-weight: bold } /* Literal.String.Interpol */
+.highlight .sx { color: #008000 } /* Literal.String.Other */
+.highlight .sr { color: #A45A77 } /* Literal.String.Regex */
+.highlight .s1 { color: #BA2121 } /* Literal.String.Single */
+.highlight .ss { color: #19177C } /* Literal.String.Symbol */
+.highlight .bp { color: #008000 } /* Name.Builtin.Pseudo */
+.highlight .fm { color: #00F } /* Name.Function.Magic */
+.highlight .vc { color: #19177C } /* Name.Variable.Class */
+.highlight .vg { color: #19177C } /* Name.Variable.Global */
+.highlight .vi { color: #19177C } /* Name.Variable.Instance */
+.highlight .vm { color: #19177C } /* Name.Variable.Magic */
+.highlight .il { color: #666 } /* Literal.Number.Integer.Long */
+</style>
+</head>
+<body>
+<main>
+<div class="toc">
+<ul>
+<li><a href="#_1">环境</a></li>
+<li><a href="#1_20260506141503_1213_64jpg-26-mb">图片 1：微信图片_20260506141503_1213_64.jpg (2.6 MB)</a><ul>
+<li><a href="#_2">调用结果</a></li>
+<li><a href="#_3">观察</a></li>
+</ul>
+</li>
+<li><a href="#2_20260506141540_1222_64jpg-27-mb">图片 2：微信图片_20260506141540_1222_64.jpg (2.7 MB)</a><ul>
+<li><a href="#vlm-raw_text">原始 VLM 输出 (raw_text)</a></li>
+<li><a href="#pagepacket">解析后 PagePacket</a></li>
+<li><a href="#_4">观察</a></li>
+</ul>
+</li>
+<li><a href="#3_20260506141605_1232_64jpg-27-mb">图片 3：微信图片_20260506141605_1232_64.jpg (2.7 MB)</a><ul>
+<li><a href="#vlm-raw_text_1">原始 VLM 输出 (raw_text)</a></li>
+<li><a href="#pagepacket_1">解析后 PagePacket</a></li>
+<li><a href="#_5">观察</a></li>
+</ul>
+</li>
+<li><a href="#4147d9824a7b61f41c32e7e0b6f6dc59cjpg-145-kb">图片 4：147d9824a7b61f41c32e7e0b6f6dc59c.jpg (145 KB)</a><ul>
+<li><a href="#vlm-raw_text_2">原始 VLM 输出 (raw_text)</a></li>
+<li><a href="#pagepacket_2">解析后 PagePacket</a></li>
+<li><a href="#_6">观察</a></li>
+</ul>
+</li>
+<li><a href="#52f9b8140654d0ffa63a5ff2a9f8997c4jpg-145-kb">图片 5：2f9b8140654d0ffa63a5ff2a9f8997c4.jpg (145 KB)</a><ul>
+<li><a href="#vlm-raw_text_3">原始 VLM 输出 (raw_text)</a></li>
+<li><a href="#pagepacket_3">解析后 PagePacket</a></li>
+<li><a href="#_7">观察</a></li>
+</ul>
+</li>
+<li><a href="#_8">总体观察</a><ul>
+<li><a href="#1">1. 模型对实验本的整体识别能力</a></li>
+<li><a href="#2-extracted_facts">2. extracted_facts 是否抓到实验本核心字段</a></li>
+<li><a href="#3-prompt-json-schema">3. prompt 的 JSON schema 约束力（这是当前最大问题）</a></li>
+<li><a href="#4">4. 跨图一致性</a></li>
+<li><a href="#5-x-roi">5. 如果改 X 就能更好（按 ROI 排序）</a></li>
+<li><a href="#6">6. 一句话总结</a></li>
+</ul>
+</li>
+</ul>
+</div>
+
+<h1 id="vlm-pipeline-2026-05-13">VLM Pipeline 测试结果 (2026-05-13)</h1>
+<h2 id="_1">环境</h2>
+<ul>
+<li><strong>使用的模型</strong>：<code>qwen3.6-plus</code>（settings 默认值，未修改）。三档候选 <code>qwen3.6-plus</code> / <code>qwen-vl-max-latest</code> / <code>qwen2.5-vl-72b-instruct</code> 都能通过 <code>chat.completions</code> 文本调用；本次正式跑图全部使用默认 <code>qwen3.6-plus</code>。所有成功响应里 <code>response.model == 'qwen3.6-plus'</code>。</li>
+<li><strong>调用方式</strong>：<code>DocumentProcessor(QwenVLMClient()).analyze_page(Path(image))</code>，即未改任何源码，直接用现有 pipeline。</li>
+<li>prompt：<code>src/sci_data_logger/prompts.py::PAGE_ANALYSIS_PROMPT</code></li>
+<li>VLM 客户端：<code>src/sci_data_logger/vlm/client.py</code>，<code>vl_high_resolution_images=True</code>，<code>temperature=0</code>，OpenAI 兼容接口走 <code>https://dashscope.aliyuncs.com/compatible-mode/v1</code></li>
+<li><code>qwen_request_timeout=120</code>s（OpenAI SDK 默认会做 2 次重试，所以单图最长大约 360s）</li>
+<li><strong>测试图片</strong>（5 张，混合大尺寸微信原图和小尺寸 hash jpg）：</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>大小</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>微信图片_20260506141503_1213_64.jpg</code></td>
+<td>2.6 MB</td>
+<td>微信原图（大图，触发 timeout）</td>
+</tr>
+<tr>
+<td><code>微信图片_20260506141540_1222_64.jpg</code></td>
+<td>2.7 MB</td>
+<td>微信原图（成功）</td>
+</tr>
+<tr>
+<td><code>微信图片_20260506141605_1232_64.jpg</code></td>
+<td>2.7 MB</td>
+<td>微信原图（成功）</td>
+</tr>
+<tr>
+<td><code>147d9824a7b61f41c32e7e0b6f6dc59c.jpg</code></td>
+<td>145 KB</td>
+<td>hash 命名小图（成功）</td>
+</tr>
+<tr>
+<td><code>2f9b8140654d0ffa63a5ff2a9f8997c4.jpg</code></td>
+<td>145 KB</td>
+<td>hash 命名小图（成功）</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>成功率</strong>：4/5（一张大微信图 360s 超时）</li>
+<li><strong>token 用量</strong>：成功的 4 张总 token ≈ 6970 + 7370 + 15880 + 16440 ≈ <strong>46 660 tokens</strong>，含 reasoning_tokens 共 1 万多 token 的"思考"开销。</li>
+</ul>
+<hr />
+<h2 id="1_20260506141503_1213_64jpg-26-mb">图片 1：<code>微信图片_20260506141503_1213_64.jpg</code> (2.6 MB)</h2>
+<h3 id="_2">调用结果</h3>
+<p><strong>失败</strong>：<code>openai.APITimeoutError: Request timed out.</code>，耗时 363.2s（即 120s × 3 = 客户端 timeout × 2 次自动重试）。</p>
+<h3 id="_3">观察</h3>
+<ul>
+<li>这张图在 base64 之后体积过大，模型端处理 + 网络传输超过单次 120s。其它两张体积接近（2.7 MB）的微信图却分别在 87s / 95s 内返回，说明问题不是固定大小阈值，而是模型/网关有偶发慢响应；现有 client 仅靠 SDK 重试，无超时升级、无大图自动压缩。</li>
+<li>这是首批 timeout，会让首张图阻塞整个 pipeline 5 分钟以上（用户视角等同卡死）。</li>
+</ul>
+<hr />
+<h2 id="2_20260506141540_1222_64jpg-27-mb">图片 2：<code>微信图片_20260506141540_1222_64.jpg</code> (2.7 MB)</h2>
+<h3 id="vlm-raw_text">原始 VLM 输出 (raw_text)</h3>
+<div class="highlight"><pre><span></span><code>```json
+{
+  &quot;page_type&quot;: &quot;synthesis_note&quot;,
+  &quot;text_blocks&quot;: [
+    &quot;9.18 合 Na4Mn9O18 纯相 850°C, 16h&quot;,
+    &quot;① Na过量 7% (√), 0.44 x 1.07 = 0.4708&quot;,
+    &quot;② Na过量 9% (√), 0.44 x 1.09 = 0.4796&quot;,
+    &quot;③ Na过量 10% (红圈√), 0.44 x 1.1 = 0.484&quot;,
+    &quot;④ Na过量 12% (红圈√, 被划掉), 0.44 x 1.12 = 0.4928&quot;,
+    &quot;④ Na过量 8%, 0.44 x 1.08 = 0.4752&quot;,
+    &quot;⑤ Na过量 6%, 0.44 x 1.06 = 0.4664&quot;,
+    &quot;⑥ Na过量 5% (被划掉)&quot;,
+    &quot;Mn2O3 : Na2CO3 =&gt; 1 : 0.4708&quot;,
+    &quot;1.5787g : 0.4708 x 1.06 = 0.499048g (注: 此处算式可能有误或为特定比例)&quot;,
+    &quot;1 : 0.4796 =&gt; 1.5787g : 0.508376g&quot;,
+    &quot;0.78935 : 0.254188g&quot;,
+    &quot;方框内: 1.5787g : 0.51304g, 0.78935g : 0.25652g&quot;,
+    &quot;1 : 0.4928 =&gt; 1.5787g : 0.522368g&quot;,
+    &quot;0.78935g : 0.261184g&quot;,
+    &quot;Mn2O3 : Na2CO3 =&gt; 1 : 0.4752&quot;,
+    &quot;1.5787g : 0.4752 x 1.06 = 0.503712g (注: 此处算式可能有误)&quot;,
+    &quot;0.78935g : 0.251856&quot;,
+    &quot;Mn2O3 : Na2CO3 =&gt; 1 : 0.4664&quot;,
+    &quot;1.5787g : 0.4664 x 1.06 = 0.494384g&quot;,
+    &quot;0.78935g : 0.247192g&quot;,
+    &quot;=&gt; 0.78935g&quot;,
+    &quot;500°C ~ 360mins (升温 5~6h)&quot;,
+    &quot;900°C ~ 720mins&quot;,
+    &quot;=&gt; (有 Na2Mn3O7, 无 Mn2O3)&quot;,
+    &quot;⑥ 加入 NaCl, 800-900°C 反应完用去离子水洗涤 NaCl&quot;,
+    &quot;① 500°C 6h + 850°C 12h&quot;,
+    &quot;① 900°C 12h&quot;,
+    &quot;② 850°C 16h&quot;,
+    &quot;③ 950°C 15h (5%~6%)&quot;,
+    &quot;④ 750°C 24h, 2.94g Na2CO3 + 10g Mn2O3 + NaCl&quot;,
+    &quot;⑤ 1000°C 15h (10%)&quot;,
+    &quot;方框结论: 850°C 含有 Mn2O3 杂质, 900°C ~ 950°C 最好&quot;
+  ],
+  &quot;table_blocks&quot;: [
+    {
+      &quot;title&quot;: &quot;Na过量比例及计算&quot;,
+      &quot;rows&quot;: [
+        [&quot;编号&quot;, &quot;Na过量&quot;, &quot;计算式&quot;, &quot;结果&quot;],
+        [&quot;①&quot;, &quot;7%&quot;, &quot;0.44 x 1.07&quot;, &quot;0.4708&quot;],
+        [&quot;②&quot;, &quot;9%&quot;, &quot;0.44 x 1.09&quot;, &quot;0.4796&quot;],
+        [&quot;③&quot;, &quot;10%&quot;, &quot;0.44 x 1.1&quot;, &quot;0.484&quot;],
+        [&quot;④(旧)&quot;, &quot;12%&quot;, &quot;0.44 x 1.12&quot;, &quot;0.4928&quot;],
+        [&quot;④(新)&quot;, &quot;8%&quot;, &quot;0.44 x 1.08&quot;, &quot;0.4752&quot;],
+        [&quot;⑤&quot;, &quot;6%&quot;, &quot;0.44 x 1.06&quot;, &quot;0.4664&quot;]
+      ]
+    }
+  ],
+  &quot;extracted_facts&quot;: {
+    &quot;target_material&quot;: {
+      &quot;value&quot;: &quot;Na4Mn9O18&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;precursors&quot;: {
+      &quot;value&quot;: [&quot;Mn2O3&quot;, &quot;Na2CO3&quot;, &quot;NaCl&quot;],
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;base_mass_Mn2O3&quot;: {
+      &quot;value&quot;: 1.5787,
+      &quot;unit&quot;: &quot;g&quot;,
+      &quot;confidence&quot;: 0.8
+    },
+    &quot;base_mass_Na2CO3_theoretical&quot;: {
+      &quot;value&quot;: 0.44,
+      &quot;unit&quot;: &quot;g&quot;,
+      &quot;confidence&quot;: 0.8
+    },
+    &quot;na_excess_percentages&quot;: {
+      &quot;value&quot;: [7, 9, 10, 12, 8, 6, 5],
+      &quot;unit&quot;: &quot;%&quot;,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;optimal_temperature_range&quot;: {
+      &quot;value&quot;: &quot;900-950&quot;,
+      &quot;unit&quot;: &quot;C&quot;,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;impurity_at_850C&quot;: {
+      &quot;value&quot;: &quot;Mn2O3&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;synthesis_steps&quot;: {
+      &quot;value&quot;: &quot;500°C 6h + 850°C 12h; or 900°C 12h; or 850°C 16h&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.8
+    }
+  },
+  &quot;open_questions&quot;: [
+    &quot;0.44g 的基准质量是如何计算得出的（对应多少摩尔的Na）？&quot;,
+    &quot;被划掉的实验点（Na过量12%和5%）具体是因为什么原因被排除？&quot;,
+    &quot;右侧计算中出现的 &#39;x 1.06&#39; 在部分算式中的含义是什么（看起来像是额外的修正系数）？&quot;,
+    &quot;产物 Na2Mn3O7 是目标产物还是中间相/杂质？&quot;
+  ]
+}
+```
+</code></pre></div>
+
+<h3 id="pagepacket">解析后 PagePacket</h3>
+<ul>
+<li><strong>page_type</strong>：<code>synthesis_note</code></li>
+<li><strong>text_blocks</strong>（共 33 条，前 3 条）：
+  1. <code>9.18 合 Na4Mn9O18 纯相 850°C, 16h</code>
+  2. <code>① Na过量 7% (√), 0.44 x 1.07 = 0.4708</code>
+  3. <code>② Na过量 9% (√), 0.44 x 1.09 = 0.4796</code></li>
+<li><strong>table_blocks</strong>：1 张，标题 "Na过量比例及计算"，6 行配方表（编号 / Na过量 / 计算式 / 结果）。</li>
+<li><strong>extracted_facts</strong>：8 个键 → <code>target_material</code>, <code>precursors</code>, <code>base_mass_Mn2O3</code>, <code>base_mass_Na2CO3_theoretical</code>, <code>na_excess_percentages</code>, <code>optimal_temperature_range</code>, <code>impurity_at_850C</code>, <code>synthesis_steps</code></li>
+<li><strong>open_questions</strong>：4 条（基准质量来源、被划掉点位的原因、× 1.06 的含义、Na2Mn3O7 是目标还是中间相）</li>
+<li><strong>warnings</strong>：<code>[]</code></li>
+<li><strong>review_required</strong>：<code>False</code></li>
+<li><strong>usage</strong>：<code>prompt_tokens=12 079</code> (image=11 846) / <code>completion_tokens=3 799</code> (含 <code>reasoning_tokens=1 984</code>) / <code>total=15 878</code></li>
+</ul>
+<h3 id="_4">观察</h3>
+<ul>
+<li>图实际内容：Na4Mn9O18（钠锰氧化物，钠电池层状正极）的合成参数探索页。手写中文 + 化学式 + 多组 Na 过量百分比的称量计算 + 温度时间筛选 + 结论"850°C 含 Mn2O3 杂质，900–950°C 最好"。</li>
+<li><strong>VLM 表现非常强</strong>：抓到了所有过量百分比、所有基准质量、最优温度范围；甚至识别出"被划掉"和"红圈勾"这种用户的人工标注语义。计算式（<code>0.44 x 1.07 = 0.4708</code>）逐条复刻没出错。</li>
+<li><strong>唯一漏的</strong>：用户实际的 <em>protocol_steps</em> 序列没有被结构化（只塞在 <code>synthesis_steps</code> 这一个字符串里："500°C 6h + 850°C 12h; or 900°C 12h; or 850°C 16h"）。下游若要重建 ProtocolStep（<code>schemas.py::ProtocolStep</code>）需要再做一层 LLM 分解。</li>
+<li>raw_text 是 <code>```json ... ```</code> 围栏过的；<code>parse_first_json_object</code> 用 <code>raw_decode</code> 从第一个 <code>{</code> 起手解析所以没受影响。如果哪天围栏内出现了非法逗号或注释，会直接 fallback 到 <code>_parse_error="no_json_object"</code>。</li>
+</ul>
+<hr />
+<h2 id="3_20260506141605_1232_64jpg-27-mb">图片 3：<code>微信图片_20260506141605_1232_64.jpg</code> (2.7 MB)</h2>
+<h3 id="vlm-raw_text_1">原始 VLM 输出 (raw_text)</h3>
+<div class="highlight"><pre><span></span><code>```json
+{
+  &quot;page_type&quot;: &quot;synthesis_note&quot;,
+  &quot;text_blocks&quot;: [
+    &quot;2025.2.19.&quot;,
+    &quot;极片：8.40 ~ 8.45&quot;,
+    &quot;Ta-1% (9%)&quot;,
+    &quot;500°C - 5h - 5°/min&quot;,
+    &quot;900°C - 12h - 2°/min&quot;,
+    &quot;仅为P2层状&quot;,
+    &quot;2.25 测试 取 8.45&quot;,
+    &quot;2025.2.26&quot;,
+    &quot;厚10%、Ta-1 2%、Ta-1 8%、Ta-1 10% 用707预烧 2°/min 500°C 5h&quot;,
+    &quot;2025.3.2&quot;,
+    &quot;厚10%、Ta-1 2%、Ta-1 8%、Ta-1 10% 用806烧结 5°/min 500°C 6h&quot;,
+    &quot;2025.3.4&quot;,
+    &quot;厚10% (2°/min)、Ta-1% - 2% (2°/min)&quot;,
+    &quot;用900°C 12h (5°/min) 烧结&quot;,
+    &quot;均有P2层，由于预烧用707炉子 (x)&quot;,
+    &quot;2025.3.5&quot;,
+    &quot;厚10% (5°/min)、Ta-1% (5°/min)、Ta-1% - 8% (5°/min)、Ta-1% - 10% (5°/min)&quot;,
+    &quot;Ta-1% - 8% (2°/min)、Ta-1% - 10% (2°/min) (707)&quot;,
+    &quot;用806 900°C 12h 2°/min 烧结&quot;
+  ],
+  &quot;table_blocks&quot;: [
+    {
+      &quot;title&quot;: &quot;极片测试数据 (2.25)&quot;,
+      &quot;rows&quot;: [
+        [&quot;14-1&quot;, &quot;10.60&quot;],
+        [&quot;9&quot;, &quot;11.70&quot;],
+        [&quot;15-2&quot;, &quot;10.82&quot;],
+        [&quot;10&quot;, &quot;11.58&quot;],
+        [&quot;11&quot;, &quot;11.50&quot;],
+        [&quot;12&quot;, &quot;11.49&quot;],
+        [&quot;13&quot;, &quot;11.45&quot;],
+        [&quot;14&quot;, &quot;11.56&quot;],
+        [&quot;15&quot;, &quot;11.66&quot;],
+        [&quot;16&quot;, &quot;11.55&quot;]
+      ]
+    }
+  ],
+  &quot;extracted_facts&quot;: {
+    &quot;date_start&quot;: {
+      &quot;value&quot;: &quot;2025.2.19&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.95
+    },
+    &quot;material_type&quot;: {
+      &quot;value&quot;: &quot;极片&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;crystal_structure&quot;: {
+      &quot;value&quot;: &quot;P2层状&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;dopant&quot;: {
+      &quot;value&quot;: &quot;Ta&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;dopant_concentration&quot;: {
+      &quot;value&quot;: &quot;1%, 2%, 8%, 10%&quot;,
+      &quot;unit&quot;: &quot;%&quot;,
+      &quot;confidence&quot;: 0.8
+    },
+    &quot;pre_sintering_temp&quot;: {
+      &quot;value&quot;: 500,
+      &quot;unit&quot;: &quot;C&quot;,
+      &quot;confidence&quot;: 0.8
+    },
+    &quot;pre_sintering_time&quot;: {
+      &quot;value&quot;: 5,
+      &quot;unit&quot;: &quot;h&quot;,
+      &quot;confidence&quot;: 0.8
+    },
+    &quot;sintering_temp&quot;: {
+      &quot;value&quot;: 900,
+      &quot;unit&quot;: &quot;C&quot;,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;sintering_time&quot;: {
+      &quot;value&quot;: 12,
+      &quot;unit&quot;: &quot;h&quot;,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;furnace_id_pre&quot;: {
+      &quot;value&quot;: &quot;707&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;furnace_id_sinter&quot;: {
+      &quot;value&quot;: &quot;806&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;heating_rate_1&quot;: {
+      &quot;value&quot;: 2,
+      &quot;unit&quot;: &quot;C/min&quot;,
+      &quot;confidence&quot;: 0.8
+    },
+    &quot;heating_rate_2&quot;: {
+      &quot;value&quot;: 5,
+      &quot;unit&quot;: &quot;C/min&quot;,
+      &quot;confidence&quot;: 0.8
+    },
+    &quot;test_value_range&quot;: {
+      &quot;value&quot;: &quot;8.40 ~ 8.45&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.8
+    }
+  },
+  &quot;open_questions&quot;: [
+    &quot;左侧数据列（10.60, 11.70等）的具体物理含义是什么？（可能是电压、容量或首效？）&quot;,
+    &quot;2025.3.2 记录中的烧结温度写的是 500°C 还是 900°C？（笔迹像500，但结合上下文可能是900）&quot;,
+    &quot;\&quot;厚10%\&quot; 具体指代什么参数？（涂布厚度？掺杂比例？）&quot;,
+    &quot;2.19 记录中的 \&quot;Ta-1% (9%)\&quot; 中括号内的 9% 指什么？&quot;,
+    &quot;3.4 记录中 \&quot;由于预烧用707炉子 (x)\&quot; 的具体含义，是指该条件失败还是被弃用？&quot;
+  ]
+}
+```
+</code></pre></div>
+
+<h3 id="pagepacket_1">解析后 PagePacket</h3>
+<ul>
+<li><strong>page_type</strong>：<code>synthesis_note</code></li>
+<li><strong>text_blocks</strong>：19 条，前 3 条 <code>2025.2.19.</code> / <code>极片：8.40 ~ 8.45</code> / <code>Ta-1% (9%)</code></li>
+<li><strong>table_blocks</strong>：1 张，标题 "极片测试数据 (2.25)"，10 行（样品编号 → 数值）</li>
+<li><strong>extracted_facts</strong>：14 个键 → <code>date_start</code>, <code>material_type</code>, <code>crystal_structure</code>, <code>dopant</code>, <code>dopant_concentration</code>, <code>pre_sintering_temp</code>, <code>pre_sintering_time</code>, <code>sintering_temp</code>, <code>sintering_time</code>, <code>furnace_id_pre</code>, <code>furnace_id_sinter</code>, <code>heating_rate_1</code>, <code>heating_rate_2</code>, <code>test_value_range</code></li>
+<li><strong>open_questions</strong>：5 条（左侧数值物理含义、3.2 记录温度数字识别歧义、"厚10%"歧义、"Ta-1% (9%)" 括号歧义、"x" 标记含义）</li>
+<li><strong>warnings</strong>：<code>[]</code></li>
+<li><strong>review_required</strong>：<code>False</code></li>
+<li><strong>usage</strong>：<code>prompt_tokens=12 079</code> / <code>completion_tokens=4 359</code> (<code>reasoning_tokens=2 866</code>) / <code>total=16 438</code></li>
+</ul>
+<h3 id="_5">观察</h3>
+<ul>
+<li>这是一份 Ta 掺杂 P2 层状（钠电池正极）的多日合成日志，跨 2025.2.19 ~ 2025.3.5 多条记录，列了不同炉子（707 / 806）和不同升温速率（2/5°C·min⁻¹）。</li>
+<li>VLM 抓得很细：每天的时间戳、参数都拆出来了；甚至在 open_questions 里主动报告"笔迹像 500，但结合上下文可能是 900" —— 这正是 prompt 想要的"不要臆造"行为。</li>
+<li><strong>错的地方</strong>：<code>pre_sintering_temp = 500°C / pre_sintering_time = 5h</code> 这两个标量值把"第一条记录"当成全局事实写死了；但页面里至少有 3.2、3.5 等多次不同预烧条件。<strong>当一页里同一字段出现多次值时，schema 只能放一个标量，模型不得不挑一个，这是 prompt/schema 的结构性盲点</strong>。</li>
+<li>同样地，<code>dopant_concentration</code> 被写成一个字符串 <code>"1%, 2%, 8%, 10%"</code> 而不是数组，但模型在图 2 的 <code>na_excess_percentages</code> 里又用了数组 —— 同模型同 prompt 跨页类型不一致。</li>
+</ul>
+<hr />
+<h2 id="4147d9824a7b61f41c32e7e0b6f6dc59cjpg-145-kb">图片 4：<code>147d9824a7b61f41c32e7e0b6f6dc59c.jpg</code> (145 KB)</h2>
+<h3 id="vlm-raw_text_2">原始 VLM 输出 (raw_text)</h3>
+<div class="highlight"><pre><span></span><code>```json
+{
+  &quot;page_type&quot;: &quot;synthesis_note&quot;,
+  &quot;text_blocks&quot;: [
+    &quot;Project (code) Book No: Cont&#39;d from page&quot;,
+    &quot;Experiment Title 5.20 Li2ZrCl6合成 600rpm 15h 高能行星球磨 540rpm 先设30h 10h抠壁&quot;,
+    &quot;2LiCl + ZrCl4 = Li2ZrCl6&quot;,
+    &quot;0.665 1.830 2.495g (crossed out) 没合成&quot;,
+    &quot;2.25LiCl + 0.25InCl3 + ZrCl4 = Li2.25Zr0.75In0.25Cl6 (formula partially crossed out/corrected)&quot;,
+    &quot;42.394 221.176 233.035 (MW values)&quot;,
+    &quot;325.456 g/mol (Product MW)&quot;,
+    &quot;0.734g 0.426g 1.346g (Reactant masses)&quot;,
+    &quot;2.506g (crossed out) 0.0077 mol&quot;,
+    &quot;5.21&quot;,
+    &quot;2LiCl + ZrCl4 = Li2ZrCl6 尝试1g 707球磨 (unclear text &#39;707&#39;)&quot;,
+    &quot;0.266g 0.732g 0.998g&quot;,
+    &quot;6.10&quot;,
+    &quot;5.20的2个2.5g重新球磨, 540rpm 30h -&gt; 峰已经靠近 P-3m1&quot;,
+    &quot;+15h -&gt; 5-10h抠一次壁&quot;,
+    &quot;10min 正 2min 休 10min 反&quot;,
+    &quot;45h (total time)&quot;
+  ],
+  &quot;table_blocks&quot;: [
+    {
+      &quot;title&quot;: &quot;5.20 Synthesis Calculation (In-doped)&quot;,
+      &quot;rows&quot;: [
+        [&quot;Component&quot;, &quot;LiCl&quot;, &quot;InCl3&quot;, &quot;ZrCl4&quot;, &quot;Product&quot;],
+        [&quot;MW&quot;, &quot;42.394&quot;, &quot;221.176&quot;, &quot;233.035&quot;, &quot;325.456 g/mol&quot;],
+        [&quot;Mass&quot;, &quot;0.734g&quot;, &quot;0.426g&quot;, &quot;1.346g&quot;, &quot;2.506g (calc)&quot;],
+        [&quot;Moles&quot;, &quot;&quot;, &quot;&quot;, &quot;&quot;, &quot;0.0077 mol&quot;]
+      ]
+    },
+    {
+      &quot;title&quot;: &quot;5.21 Synthesis Calculation&quot;,
+      &quot;rows&quot;: [
+        [&quot;Component&quot;, &quot;LiCl&quot;, &quot;ZrCl4&quot;, &quot;Total&quot;],
+        [&quot;Mass&quot;, &quot;0.266g&quot;, &quot;0.732g&quot;, &quot;0.998g&quot;]
+      ]
+    }
+  ],
+  &quot;extracted_facts&quot;: {
+    &quot;experiment_dates&quot;: {
+      &quot;value&quot;: [&quot;5.20&quot;, &quot;5.21&quot;, &quot;6.10&quot;],
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.95
+    },
+    &quot;target_material_1&quot;: {
+      &quot;value&quot;: &quot;Li2ZrCl6&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.95
+    },
+    &quot;target_material_2&quot;: {
+      &quot;value&quot;: &quot;Li2.25Zr0.75In0.25Cl6&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.85
+    },
+    &quot;synthesis_method&quot;: {
+      &quot;value&quot;: &quot;High energy planetary ball milling (高能行星球磨)&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.95
+    },
+    &quot;milling_parameters_initial&quot;: {
+      &quot;value&quot;: &quot;600rpm, 15h&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;milling_parameters_modified&quot;: {
+      &quot;value&quot;: &quot;540rpm, 30h + 15h (total 45h)&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;milling_cycle&quot;: {
+      &quot;value&quot;: &quot;10min forward, 2min pause, 10min reverse&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;maintenance_action&quot;: {
+      &quot;value&quot;: &quot;Scrape walls every 5-10h (5-10h抠一次壁)&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;observation_6_10&quot;: {
+      &quot;value&quot;: &quot;Peaks close to P-3m1 space group (峰已经靠近 P-3m1)&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;result_5_20_batch_1&quot;: {
+      &quot;value&quot;: &quot;Failed/Not synthesized (没合成)&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;reactant_masses_5_21&quot;: {
+      &quot;value&quot;: {&quot;LiCl&quot;: &quot;0.266g&quot;, &quot;ZrCl4&quot;: &quot;0.732g&quot;},
+      &quot;unit&quot;: &quot;g&quot;,
+      &quot;confidence&quot;: 0.9
+    }
+  },
+  &quot;open_questions&quot;: [
+    &quot;What does &#39;707球磨&#39; refer to in the 5.21 entry? (Typo for 70g? Or a specific jar type?)&quot;,
+    &quot;Which specific &#39;2.5g&#39; samples from 5.20 were re-milled on 6.10? (Likely the calculated batches).&quot;,
+    &quot;What was the specific reason for the failure of the first 5.20 batch (&#39;没合成&#39;)?&quot;
+  ]
+}
+```
+</code></pre></div>
+
+<h3 id="pagepacket_2">解析后 PagePacket</h3>
+<ul>
+<li><strong>page_type</strong>：<code>synthesis_note</code></li>
+<li><strong>text_blocks</strong>：17 条，前 3 条 <code>Project (code) Book No: Cont'd from page</code> / <code>Experiment Title 5.20 Li2ZrCl6合成 600rpm 15h 高能行星球磨 540rpm 先设30h 10h抠壁</code> / <code>2LiCl + ZrCl4 = Li2ZrCl6</code></li>
+<li><strong>table_blocks</strong>：2 张，分别是 5.20 和 5.21 的反应物计算表</li>
+<li><strong>extracted_facts</strong>：11 个键 → <code>experiment_dates</code>, <code>target_material_1</code>, <code>target_material_2</code>, <code>synthesis_method</code>, <code>milling_parameters_initial</code>, <code>milling_parameters_modified</code>, <code>milling_cycle</code>, <code>maintenance_action</code>, <code>observation_6_10</code>, <code>result_5_20_batch_1</code>, <code>reactant_masses_5_21</code></li>
+<li><strong>open_questions</strong>：3 条（"707"指代、6.10 重新球磨的具体样品、5.20 第一批"没合成"的原因）</li>
+<li><strong>warnings</strong>：<code>[]</code></li>
+<li><strong>review_required</strong>：<code>False</code></li>
+<li><strong>usage</strong>：<code>prompt_tokens=2 355</code> (image=2 122) / <code>completion_tokens=4 613</code> (<code>reasoning_tokens=3 044</code>) / <code>total=6 968</code></li>
+<li><strong>特别注意</strong>：image token 只有 2 122，因为这张图是 145 KB，分辨率小很多 —— 但模型仍然把化学式、配方表、球磨工艺都还原出来了。</li>
+</ul>
+<h3 id="_6">观察</h3>
+<ul>
+<li>实际内容：一本英文模板的实验本，里面手写记录 Li2ZrCl6 和 Li2.25Zr0.75In0.25Cl6（锂离子超离子导体）的多批球磨合成。</li>
+<li>VLM 表现：<strong>配方表的化学式、分子量、质量都正确</strong>；正反向 +休止的球磨节律 "10min 正 2min 休 10min 反"也抓出来了，连用户的"抠壁"行话都保留。</li>
+<li>错/弱点：<code>target_material_1</code> / <code>target_material_2</code> 这种 <em>按序号命名</em> 的方式很丑（schema 里应该是 list[MaterialInput]）；<code>reactant_masses_5_21</code> 的 <code>value</code> 是个嵌套 dict 但单位却是顶层 <code>"g"</code>，按现有 <code>FieldValue</code>（<code>schemas.py:40</code>）的语义这种"嵌套 dict + 顶层 unit"会在下游归一化时很难处理。</li>
+</ul>
+<hr />
+<h2 id="52f9b8140654d0ffa63a5ff2a9f8997c4jpg-145-kb">图片 5：<code>2f9b8140654d0ffa63a5ff2a9f8997c4.jpg</code> (145 KB)</h2>
+<h3 id="vlm-raw_text_3">原始 VLM 输出 (raw_text)</h3>
+<div class="highlight"><pre><span></span><code>```json
+{
+  &quot;page_type&quot;: &quot;synthesis_note&quot;,
+  &quot;text_blocks&quot;: [
+    &quot;Project (code) Book No: Cont&#39;d from page&quot;,
+    &quot;Experiment Title 2024.8.29 EIS测试&quot;,
+    &quot;白罐 #1 LEC   #2 LIEC&quot;,
+    &quot;2024.8.30&quot;,
+    &quot;黄罐 #1 先手磨配粉   #2 LIEC (In, 5)&quot;,
+    &quot;LEC&quot;,
+    &quot;预磨 15Hz. 30min.&quot;,
+    &quot;47Hz 1800min. 30h.&quot;,
+    &quot;546 rpm&quot;,
+    &quot;① 466.8min&quot;,
+    &quot;② 1127.2 min.&quot;,
+    &quot;③ 1593.0 min. 26.55h.&quot;,
+    &quot;④ 重设了 1200 min 654.6 min.&quot;,
+    &quot;当前球粉比还有部分粉粘壁非常严重，&quot;,
+    &quot;考虑更换球粉比，合1.5g&quot;,
+    &quot;便利贴内容:&quot;,
+    &quot;#1 Li3ErCl6&quot;,
+    &quot;3LiCl + ErCl3 = Li3ErCl6&quot;,
+    &quot;0.635g 1.365g 2g&quot;,
+    &quot;#2&quot;,
+    &quot;3LiCl + 0.25InCl3 + 0.75ErCl3 = Li3In0.25Er0.75Cl6&quot;,
+    &quot;0.656g 0.285g 1.059g 2g&quot;
+  ],
+  &quot;table_blocks&quot;: [
+    {
+      &quot;title&quot;: &quot;便利贴配方记录&quot;,
+      &quot;rows&quot;: [
+        {
+          &quot;sample&quot;: &quot;#1&quot;,
+          &quot;formula&quot;: &quot;Li3ErCl6&quot;,
+          &quot;reaction&quot;: &quot;3LiCl + ErCl3 = Li3ErCl6&quot;,
+          &quot;masses&quot;: &quot;0.635g (LiCl), 1.365g (ErCl3), Total 2g&quot;
+        },
+        {
+          &quot;sample&quot;: &quot;#2&quot;,
+          &quot;formula&quot;: &quot;Li3In0.25Er0.75Cl6&quot;,
+          &quot;reaction&quot;: &quot;3LiCl + 0.25InCl3 + 0.75ErCl3 = Li3In0.25Er0.75Cl6&quot;,
+          &quot;masses&quot;: &quot;0.656g (LiCl), 0.285g (InCl3), 1.059g (ErCl3), Total 2g&quot;
+        }
+      ]
+    },
+    {
+      &quot;title&quot;: &quot;球磨时间记录&quot;,
+      &quot;rows&quot;: [
+        {
+          &quot;step&quot;: &quot;①&quot;,
+          &quot;time&quot;: &quot;466.8 min&quot;
+        },
+        {
+          &quot;step&quot;: &quot;②&quot;,
+          &quot;time&quot;: &quot;1127.2 min&quot;
+        },
+        {
+          &quot;step&quot;: &quot;③&quot;,
+          &quot;time&quot;: &quot;1593.0 min (26.55 h)&quot;
+        },
+        {
+          &quot;step&quot;: &quot;④&quot;,
+          &quot;time&quot;: &quot;重设了 1200 min, 654.6 min&quot;
+        }
+      ]
+    }
+  ],
+  &quot;extracted_facts&quot;: {
+    &quot;date&quot;: {
+      &quot;value&quot;: &quot;2024-08-29, 2024-08-30&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.95
+    },
+    &quot;experiment_title&quot;: {
+      &quot;value&quot;: &quot;EIS测试&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;samples&quot;: {
+      &quot;value&quot;: &quot;白罐 #1 (LEC), 白罐 #2 (LIEC), 黄罐 #1 (LEC), 黄罐 #2 (LIEC)&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.85
+    },
+    &quot;milling_parameters&quot;: {
+      &quot;value&quot;: &quot;Pre-mill: 15Hz, 30min; Main-mill: 47Hz, 1800min (30h), 546rpm&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;observation&quot;: {
+      &quot;value&quot;: &quot;粉粘壁非常严重&quot;,
+      &quot;unit&quot;: null,
+      &quot;confidence&quot;: 0.9
+    },
+    &quot;plan&quot;: {
+      &quot;value&quot;: &quot;考虑更换球粉比，总重1.5g&quot;,
+      &quot;unit&quot;: &quot;g&quot;,
+      &quot;confidence&quot;: 0.8
+    }
+  },
+  &quot;open_questions&quot;: [
+    &quot;黄罐 #2 后面的括号内容 &#39;(In, 5)&#39; 或 &#39;(Zn, 5)&#39; 具体指代什么？结合便利贴看应该是 In 掺杂，但手写体略模糊。&quot;,
+    &quot;时间记录第④点 &#39;重设了 1200 min 654.6 min&#39; 的具体含义是什么？是剩余时间还是已运行时间？&quot;,
+    &quot;&#39;白罐&#39; 和 &#39;黄罐&#39; 是指球磨罐的颜色/材质，还是样品的代号？（推测为球磨罐）&quot;,
+    &quot;LEC 和 LIEC 具体代表什么化学体系？（推测 LEC = Li-Er-Cl, LIEC = Li-In-Er-Cl）&quot;
+  ]
+}
+```
+</code></pre></div>
+
+<h3 id="pagepacket_3">解析后 PagePacket</h3>
+<ul>
+<li><strong>page_type</strong>：<code>synthesis_note</code></li>
+<li><strong>text_blocks</strong>：22 条</li>
+<li><strong>table_blocks</strong>：2 张，"便利贴配方记录"（list of dict 行） + "球磨时间记录"（list of dict 行）—— <strong>注意：此处 rows 是 dict 而不是 list[list]，跟图 2/3 不一致</strong></li>
+<li><strong>extracted_facts</strong>：6 个键 → <code>date</code>, <code>experiment_title</code>, <code>samples</code>, <code>milling_parameters</code>, <code>observation</code>, <code>plan</code></li>
+<li><strong>open_questions</strong>：4 条（包括两个核心歧义：手写"In, 5"vs"Zn, 5"、"LEC/LIEC"缩写解读）</li>
+<li><strong>warnings</strong>：<code>[]</code></li>
+<li><strong>review_required</strong>：<code>False</code></li>
+<li><strong>usage</strong>：<code>prompt_tokens=2 355</code> / <code>completion_tokens=5 014</code> (<code>reasoning_tokens=3 649</code>) / <code>total=7 369</code></li>
+</ul>
+<h3 id="_7">观察</h3>
+<ul>
+<li>这是一份 EIS 测试 + 球磨日志，目标产物 Li3ErCl6 / Li3In0.25Er0.75Cl6（同样是锂离子超离子导体方向）。手写中夹白罐黄罐这种俚称，模型也都识别出来了，并主动在 open_questions 里报告"白罐/黄罐应该是球磨罐颜色"。</li>
+<li>错/弱点：<code>extracted_facts</code> 这一次完全跑偏到"扁平描述字符串"了 —— <code>samples</code> 是 <code>"白罐 #1 (LEC), 白罐 #2 (LIEC), 黄罐 #1 (LEC), 黄罐 #2 (LIEC)"</code> 一长串，根本不是结构化数据。<strong>对比图 4 的 <code>target_material_1 / _2</code>，再对比图 2 的 <code>precursors=[…]</code>，三种风格在同 prompt 下都出现了</strong>，schema 显然约束力不够。</li>
+<li>table_blocks rows 的类型在这里是 dict（图 2/3 是 list[list]）。当下游想做 "row 转 KV" 时会被这种 schema 异质性绊倒。</li>
+<li>反应化学计量与质量都正确（包括 Li3In0.25Er0.75Cl6 的非整数下标）。</li>
+</ul>
+<hr />
+<h2 id="_8">总体观察</h2>
+<h3 id="1">1. 模型对实验本的整体识别能力</h3>
+<ul>
+<li>测试集是<strong>重度手写中文 + 化学式 + 表格 + 多日累积记录 + 笔迹涂改</strong>的真实实验本（钠电池正极、锂离子超离子导体两个方向）。</li>
+<li>4/5 全部识别到 page_type <code>synthesis_note</code>、原文复刻 ≥95% 正确（化学式 <code>Li2.25Zr0.75In0.25Cl6</code> 这种非常细节的下标都没错）、给出了 confidence、给出了 open_questions。这远比单纯 OCR 强 —— <strong>模型在主动做语义抽取与"我不确定"的元认知报告</strong>。</li>
+<li>失败模式只有一个：<strong>首张大图 timeout 363s</strong>，是网关/网络偶发慢，不是识别能力问题。</li>
+</ul>
+<h3 id="2-extracted_facts">2. extracted_facts 是否抓到实验本核心字段</h3>
+<table>
+<thead>
+<tr>
+<th>字段类型</th>
+<th>出现于</th>
+<th>实际命名</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>目标材料</td>
+<td>4/4</td>
+<td><code>target_material</code>, <code>target_material_1/_2</code>, <code>material_type</code> + <code>crystal_structure</code></td>
+</tr>
+<tr>
+<td>反应物 / 前驱体</td>
+<td>4/4</td>
+<td><code>precursors</code>, <code>reactant_masses_5_21</code>, 嵌在 <code>samples</code> 字符串里</td>
+</tr>
+<tr>
+<td>工艺步骤 / 烧结 / 球磨参数</td>
+<td>4/4</td>
+<td><code>synthesis_steps</code>（合并字符串）、<code>sintering_temp/time</code>、<code>milling_parameters_*</code>、<code>milling_cycle</code></td>
+</tr>
+<tr>
+<td>观察 / 结论</td>
+<td>3/4</td>
+<td><code>impurity_at_850C</code>, <code>observation</code>, <code>observation_6_10</code></td>
+</tr>
+<tr>
+<td>操作记录 / 日期</td>
+<td>4/4</td>
+<td><code>date</code>, <code>date_start</code>, <code>experiment_dates</code>（数组）</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>核心字段都抓到了</strong>。但跨图都是各取各的名字、各取各的结构 —— 这是下面"一致性"问题的重点。</p>
+</blockquote>
+<h3 id="3-prompt-json-schema">3. prompt 的 JSON schema 约束力（这是当前最大问题）</h3>
+<p><code>PAGE_ANALYSIS_PROMPT</code> 只给了 5 句话指令 + 一个 5 行示例：</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;page_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;synthesis_note&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;text_blocks&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;...&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;table_blocks&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;rows&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]}],</span>
+<span class="w">  </span><span class="nt">&quot;extracted_facts&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;sample_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;unit&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;temperature&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;unit&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;C&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.7</span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;open_questions&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;...&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>这个 schema 太弱，导致：</p>
+<ol>
+<li><strong><code>extracted_facts</code> 的 key 完全自由命名</strong>。4 张图里出现了 39 个不同 key，没有任何重复。下游 agent 想拼装 ExperimentRecord（<code>schemas.py::ExperimentRecord</code>，里面有固定的 <code>materials / steps / measurements / observations</code>）几乎只能再过一遍 LLM 做映射。</li>
+<li><strong><code>extracted_facts.value</code> 类型从 string / int / float / list / dict 都有</strong>，FieldValue 模型本身允许（<code>value: Any</code>），但下游不知道该用什么 parser。</li>
+<li><strong><code>table_blocks.rows</code> 一会儿是 <code>list[list[str]]</code>，一会儿是 <code>list[dict]</code></strong>。</li>
+<li><strong>当同一字段在一页里有多个值时（如图 3 的多天预烧温度），模型被迫挑一个标量</strong>，损失信息。</li>
+<li><strong>没有 <code>review_required</code>、<code>warnings</code> 写出指引</strong> —— 4 张图全是 <code>review_required=False</code> / <code>warnings=[]</code>，可是图 3 模型自己都说"笔迹像 500，但可能是 900"。<strong>这种存在歧义的页面理应触发 <code>review_required=True</code></strong> —— 当前 prompt 没要求模型这么做。</li>
+<li><strong>没有要求 schema 跟项目里的 <code>materials / steps / observations</code> 三个核心列表对齐</strong>。模型并不知道下游有 <code>MaterialInput</code>、<code>ProtocolStep</code>、<code>MeasurementPacket</code>、<code>FieldValue</code> 这些 pydantic 模型存在。</li>
+</ol>
+<h3 id="4">4. 跨图一致性</h3>
+<ul>
+<li><strong>page_type 一致</strong>：全是 <code>synthesis_note</code>（其实图 5 应该是 <code>characterization_note + synthesis_note</code> 混合，里面有 EIS 测试）。prompt 里给的几个枚举值 <code>synthesis_note / characterization_note / calculation / observation / unknown</code> 太粗，<strong>没有要求"一页可以有多个类型，请用 list"</strong>。</li>
+<li><strong>extracted_facts.key 完全不一致</strong>：4 张图 39 个 key，0 个重叠。</li>
+<li><strong>table_blocks.rows 结构不一致</strong>：图 2/3 用 <code>list[list]</code>，图 4 用 <code>list[list]</code>，图 5 用 <code>list[dict]</code>。</li>
+<li><strong>value 类型不一致</strong>：百分比一会儿是 <code>[7,9,10]</code>，一会儿是 <code>"1%, 2%, 8%, 10%"</code>。</li>
+<li><strong>优点：confidence 给得相当稳定</strong>，0.8~0.95 居多，跟用户笔迹清晰度大致正相关。</li>
+</ul>
+<h3 id="5-x-roi">5. 如果改 X 就能更好（按 ROI 排序）</h3>
+<table>
+<thead>
+<tr>
+<th>优先级</th>
+<th>改动</th>
+<th>预期收益</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>P0</strong></td>
+<td>在 prompt 里<strong>固化 extracted_facts 的 key vocabulary</strong>（至少分三组：materials, steps, observations, conditions），并在 schema example 里列出真实业务命名（如 <code>target_material</code>、<code>precursor</code>、<code>mass</code>、<code>temperature</code>、<code>time</code>、<code>atmosphere</code>、<code>furnace_id</code>、<code>heating_rate</code>、<code>milling_rpm</code> …）。让下游不再需要做语义对齐。</td>
+<td>跨图字段统一，下游可以直接 map → ExperimentRecord</td>
+</tr>
+<tr>
+<td><strong>P0</strong></td>
+<td>在 prompt 里要求 <code>table_blocks.rows: list[list[str]]</code>（固定），并指定第 0 行是表头。</td>
+<td>下游表格 parser 不再需要类型嗅探</td>
+</tr>
+<tr>
+<td><strong>P0</strong></td>
+<td>在 client 加大图自动 downscale（如 长边 &gt; 2000px 缩到 1600px）或者把 <code>timeout</code> 拉到 240s + 客制化 retry 信号。</td>
+<td>减少 timeout，本次 1/5 失败率（20%）变成 0</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>在 prompt 里把"模型自报歧义时必须 <code>review_required=true</code>"写死。当前模型会写 open_questions，但 review_required 始终 False，UI 层很难触发人工 review。</td>
+<td>自动触发审核流程</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>把 <code>extracted_facts</code> 拆成三段或重命名为 <code>extracted_materials / extracted_steps / extracted_conditions</code>，对应 <code>MaterialInput / ProtocolStep / FieldValue</code>。</td>
+<td>DocumentProcessor → ExperimentRecord 可直接 map，少一层 LLM</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>允许字段值是 list of timepoint records（解决图 3 多日不同预烧温度被压成标量的问题）：<code>{"value": [{"date": "...", "value": ..., "unit": ...}]}</code></td>
+<td>真实跨日实验本能完整还原</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>允许 <code>page_type</code> 是 list（图 5 是合成 + EIS 混合页）。</td>
+<td>多用途页面分类正确</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>把 <code>STEP_EXTRACTION_HINT</code> 里那些动词词表（称量、混合、搅拌、加热…）合并进 PAGE_ANALYSIS_PROMPT，让 step 抽取更可控。</td>
+<td>step 字段标准化</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>把围栏 <code>```json ... ```</code> 在 prompt 里明确写"只输出 JSON 对象，不要 markdown 围栏" —— 当前 <code>parse_first_json_object</code> 是兜底解析，能扛但是不优雅。</td>
+<td>节省 1~2% token、解析更稳。</td>
+</tr>
+<tr>
+<td><strong>P3</strong></td>
+<td>reasoning_tokens 占 completion 的 40~70%，可考虑降级到 <code>qwen-vl-max-latest</code>（无 reasoning 阶段）以省 token &amp; 减时延，看准确度损失再决策。</td>
+<td>速度 ↑ / 成本 ↓</td>
+</tr>
+</tbody>
+</table>
+<h3 id="6">6. 一句话总结</h3>
+<p><strong>Qwen3.6-plus 对实验本图像的语义识别能力已经远超 OCR，能复刻化学式、识别涂改、给出 confidence 和 open_questions —— 但 prompt/schema 的弱约束让"提取出的字段命名/类型/结构跨图各不相同"，是当前阻碍下游 ExperimentRecord 自动拼装的最大瓶颈。最优先 ROI 改动是把 extracted_facts 的 key vocabulary 与 table_blocks.rows 结构在 prompt 里固化。</strong></p>
+<div class="footer">
+来源：<code>test_results.md</code>
+</div>
+</main>
+</body>
+</html>

@@ -1,0 +1,57 @@
+{
+  "instruments": [
+    {
+      "instrument_id": "xrd_smartlab_01",
+      "display_name": "SmartLab XRD",
+      "technique": "XRD",
+      "manufacturer": "Rigaku",
+      "model": "SmartLab",
+      "aliases": ["smartlab", "xrd-1", "xrd_smartlab"],
+      "file_patterns": ["*xrd*", "*smartlab*"],
+      "parser_plugin": "generic_text_report",
+      "field_mappings": {
+        "Radiation": "radiation",
+        "Tube Voltage": "tube_voltage_kv",
+        "Tube Current": "tube_current_ma",
+        "2Theta Start": "two_theta_start_deg",
+        "2Theta End": "two_theta_end_deg",
+        "Step Size": "step_size_deg",
+        "Scan Speed": "scan_speed"
+      }
+    },
+    {
+      "instrument_id": "sem_generic_01",
+      "display_name": "Generic SEM",
+      "technique": "SEM",
+      "manufacturer": null,
+      "model": null,
+      "aliases": ["sem", "eht", "hv"],
+      "file_patterns": ["*sem*", "*eht*"],
+      "parser_plugin": "generic_text_report",
+      "field_mappings": {
+        "EHT": "accelerating_voltage_kv",
+        "Accelerating Voltage": "accelerating_voltage_kv",
+        "Magnification": "magnification",
+        "Working Distance": "working_distance_mm",
+        "Detector": "detector"
+      }
+    },
+    {
+      "instrument_id": "raman_generic_01",
+      "display_name": "Generic Raman",
+      "technique": "Raman",
+      "manufacturer": null,
+      "model": null,
+      "aliases": ["raman"],
+      "file_patterns": ["*raman*"],
+      "parser_plugin": "generic_text_report",
+      "field_mappings": {
+        "Laser Wavelength": "laser_wavelength_nm",
+        "Laser Power": "laser_power",
+        "Integration Time": "integration_time_s",
+        "Accumulations": "accumulations",
+        "Spectral Range": "spectral_range"
+      }
+    }
+  ]
+}
