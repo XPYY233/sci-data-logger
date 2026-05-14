@@ -1,5 +1,6 @@
 __pycache__/
 *.py[cod]
+.DS_Store
 .pytest_cache/
 .ruff_cache/
 .venv/
@@ -10,3 +11,9 @@ reports/
 dist/
 build/
 *.egg-info/
+
+# Local-only planning / research artifacts — not part of shipped repo.
+code_modification_plan.html
+research_report_*.md
+solution_report_*.md
+docs/superpowers/**/*.html
