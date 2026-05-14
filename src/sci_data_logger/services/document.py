@@ -5,7 +5,10 @@ from typing import Any
 
 from sci_data_logger.prompts import PAGE_ANALYSIS_PROMPT
 from sci_data_logger.schemas import (
+    EventIO,
+    EventOutput,
     EvidenceRef,
+    ExperimentEvent,
     FieldValue,
     MaterialInput,
     PagePacket,
@@ -328,8 +331,6 @@ class DocumentProcessor:
         """Parse VLM event list. material_ref_local / instrument_ref_local 保留为字符串，
         留给 Orchestrator 解析到真正的 material_id / instrument_id。
         """
-        from sci_data_logger.schemas import ExperimentEvent, EventIO, EventOutput
-
         if not isinstance(items, list):
             return []
         result = []

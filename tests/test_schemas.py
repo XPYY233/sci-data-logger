@@ -39,14 +39,14 @@ def test_material_defaults_and_required_fields():
     assert m.display_name is None
     assert m.aliases == []
     assert m.chemical_formula is None
-    assert m.role is None
+    assert m.roles == []
     assert m.metadata == {}
     assert m.material_id.startswith("mat_")
 
     m2 = Material(canonical_name="LiCl", display_name="氯化锂",
                   aliases=["LiCl·H2O"], chemical_formula="LiCl",
-                  role="precursor")
-    assert m2.role == "precursor"
+                  roles=["precursor"])
+    assert m2.roles == ["precursor"]
     assert "LiCl·H2O" in m2.aliases
 
 
@@ -163,8 +163,8 @@ def test_experiment_record_catalogs_and_compat_properties():
     assert rec.observations == []
 
     # 填充 catalog + events
-    mat_a = Material(canonical_name="LiCl", role="precursor")
-    mat_b = Material(canonical_name="Li2ZrCl6", role="target")
+    mat_a = Material(canonical_name="LiCl", roles=["precursor"])
+    mat_b = Material(canonical_name="Li2ZrCl6", roles=["target"])
     evt = ExperimentEvent(
         sequence_index=1,
         action_type="mill",

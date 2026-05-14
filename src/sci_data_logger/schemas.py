@@ -69,7 +69,7 @@ class Material(BaseModel):
     display_name: str | None = None
     aliases: list[str] = Field(default_factory=list)
     chemical_formula: str | None = None
-    role: str | None = None
+    roles: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -227,19 +227,33 @@ class ExperimentRecord(BaseModel):
     # === Backward-compat derived properties (V0 only; deprecate in Phase 3) ===
     @property
     def materials(self) -> list[MaterialInput]:
-        return [
-            MaterialInput(
-                name=m.canonical_name,
-                role=m.role,
-                amount=None,
-                metadata={
-                    "aliases": m.aliases,
-                    "chemical_formula": m.chemical_formula,
-                    **(m.metadata or {}),
-                },
-            )
-            for m in self.materials_catalog
-        ]
+        out: list[MaterialInput] = []
+        for m in self.materials_catalog:
+            meta = {
+                "aliases": m.aliases,
+                "chemical_formula": m.chemical_formula,
+                **(m.metadata or {}),
+            }
+            if m.roles:
+                for role in m.roles:
+                    out.append(
+                        MaterialInput(
+                            name=m.canonical_name,
+                            role=role,
+                            amount=None,
+                            metadata=meta,
+                        )
+                    )
+            else:
+                out.append(
+                    MaterialInput(
+                        name=m.canonical_name,
+                        role=None,
+                        amount=None,
+                        metadata=meta,
+                    )
+                )
+        return out
 
     @property
     def steps(self) -> list[ProtocolStep]:

@@ -135,6 +135,103 @@ def test_resolve_events_links_local_refs_to_catalog_ids(tmp_path):
     )
 
 
+def test_orchestrator_uses_inferred_year_for_md_events(tmp_path):
+    """Page with one full-YMD event and one M/D-only event: both end up dated to the YMD year."""
+    from sci_data_logger.schemas import ExperimentEvent
+
+    page1 = PagePacket(source_path="p1.jpg")
+    page1.extracted_events = [
+        ExperimentEvent(
+            sequence_index=1,
+            date_label="2024-05-20",
+            action_type="mill",
+            description="anchored event",
+            page_ref=page1.page_id,
+        ),
+        ExperimentEvent(
+            sequence_index=2,
+            date_label="6.10",
+            action_type="mill",
+            description="follow-up event",
+            page_ref=page1.page_id,
+        ),
+    ]
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page1]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-YEAR", image_paths=[img1],
+    ))
+    iso_values = sorted(e.date_iso for e in record.events if e.date_iso)
+    assert iso_values == ["2024-05-20", "2024-06-10"]
+
+
+def test_orchestrator_merges_stub_material_into_real_catalog_entry(tmp_path):
+    """Stub material auto-created from a raw event ref should merge into the real catalog entry."""
+    from sci_data_logger.schemas import EventIO, ExperimentEvent
+
+    page1 = PagePacket(source_path="p1.jpg")
+    # The real catalog entry lists '氯化锂' (Chinese alias of LiCl).
+    page1.raw_model_output = {"json": {"materials_catalog": [
+        {"canonical_name": "LiCl", "role": "precursor", "aliases": ["氯化锂"]},
+    ]}}
+    # ...but the event refers to a string that *isn't* on either list yet,
+    # so the orchestrator auto-creates a stub. The reconcile pass should fold
+    # it back if the stub matches the real entry's canonical_name/alias.
+    page1.extracted_events = [
+        ExperimentEvent(
+            sequence_index=1,
+            action_type="weigh",
+            description="ref by alias",
+            inputs=[EventIO(material_ref="氯化锂")],  # matches alias of LiCl
+            page_ref=page1.page_id,
+        ),
+    ]
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page1]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-RECONCILE", image_paths=[img1],
+    ))
+    # Only one catalog entry — stub was merged away.
+    assert len(record.materials_catalog) == 1
+    real = record.materials_catalog[0]
+    assert real.canonical_name == "LiCl"
+    # Event refs rewritten to the real id.
+    assert record.events[0].inputs[0].material_ref == real.material_id
+
+
+def test_orchestrator_material_dedup_accumulates_roles_across_pages(tmp_path):
+    """Same canonical_name with different roles across pages -> single entry, both roles kept."""
+    page1 = PagePacket(source_path="p1.jpg")
+    page1.raw_model_output = {"json": {"materials_catalog": [
+        {"canonical_name": "LiCl", "role": "precursor"},
+    ]}}
+    page2 = PagePacket(source_path="p2.jpg")
+    page2.raw_model_output = {"json": {"materials_catalog": [
+        {"canonical_name": "LiCl", "role": "byproduct"},
+    ]}}
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    img2 = tmp_path / "p2.jpg"
+    img2.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page1, page2]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-ROLES", image_paths=[img1, img2],
+    ))
+    assert len(record.materials_catalog) == 1
+    assert sorted(record.materials_catalog[0].roles) == ["byproduct", "precursor"]
+
+
 def test_end_to_end_event_centric_record_from_mock_vlm(tmp_path, monkeypatch):
     """完整路径：mock VLM → DocumentProcessor → Orchestrator → ExperimentRecord."""
     from sci_data_logger.services.document import DocumentProcessor
@@ -173,7 +270,7 @@ def test_end_to_end_event_centric_record_from_mock_vlm(tmp_path, monkeypatch):
                             "confidence": 0.9,
                         }
                     ],
-                    "extracted_dates": ["5.20"],
+                    "extracted_dates": ["2026-05-20", "5.20"],
                     "extracted_target_phases": ["P-3m1"],
                     "extracted_failure_markers": [{"marker": "X", "target": "Li2ZrCl6"}],
                     "text_blocks": [],

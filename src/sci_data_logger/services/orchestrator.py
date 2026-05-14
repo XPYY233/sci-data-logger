@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import unicodedata
+from concurrent.futures import ThreadPoolExecutor
+
+from sci_data_logger.config import get_settings
 from sci_data_logger.schemas import (
     DataAsset,
     DraftExperimentRequest,
@@ -16,6 +20,7 @@ from sci_data_logger.schemas import (
 )
 from sci_data_logger.services.document import DocumentProcessor
 from sci_data_logger.services.instrument import InstrumentService
+from sci_data_logger.utils.date_heuristics import infer_default_year, label_to_iso
 
 
 class ExperimentOrchestrator:
@@ -30,7 +35,7 @@ class ExperimentOrchestrator:
         self.instrument_service = instrument_service or InstrumentService()
 
     def create_draft(self, request: DraftExperimentRequest) -> ExperimentRecord:
-        pages = [self.document_processor.analyze_page(path) for path in request.image_paths]
+        pages = self._analyze_pages_concurrently(request.image_paths)
         measurements = [
             self.instrument_service.parse_file(path) for path in request.instrument_file_paths
         ]
@@ -66,15 +71,26 @@ class ExperimentOrchestrator:
             record.status = ReviewStatus.NEEDS_REVIEW
         return record
 
+    def _analyze_pages_concurrently(self, image_paths) -> list[PagePacket]:
+        """Dispatch VLM page analyses with bounded concurrency, preserving input order."""
+        if not image_paths:
+            return []
+        max_workers = max(1, int(get_settings().vlm_concurrency or 1))
+        if max_workers <= 1 or len(image_paths) <= 1:
+            return [self.document_processor.analyze_page(p) for p in image_paths]
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            return list(ex.map(self.document_processor.analyze_page, image_paths))
+
     @staticmethod
     def _merge_materials_catalog(pages: list[PagePacket]) -> list[Material]:
         """跨页合并 materials_catalog（来自 VLM 的 raw_model_output.json.materials_catalog）。
 
-        去重 key：(canonical_name 大小写不敏感 strip 后, role)。
+        去重 key：canonical_name (case-insensitive, stripped). Role 不参与 key —
+        同一材料在不同页面以不同 role 出现时合并为同一 catalog 条目，roles 累积。
         aliases 合并；display_name 取第一次出现的。
         如果 VLM 未提供新 schema 的 materials_catalog，则回退到 page.extracted_materials。
         """
-        seen: dict[tuple[str, str | None], Material] = {}
+        seen: dict[str, Material] = {}
         for page in pages:
             catalog_items = (
                 (page.raw_model_output or {}).get("json", {}).get("materials_catalog") or []
@@ -96,7 +112,13 @@ class ExperimentOrchestrator:
                 if not canon:
                     continue
                 role = raw.get("role")
-                key = (canon.lower(), role)
+                roles_field = raw.get("roles")
+                incoming_roles: list[str] = []
+                if isinstance(roles_field, list):
+                    incoming_roles = [str(r) for r in roles_field if r]
+                elif role:
+                    incoming_roles = [str(role)]
+                key = canon.lower()
                 existing = seen.get(key)
                 new_aliases = [str(a) for a in (raw.get("aliases") or []) if a]
                 if existing is None:
@@ -105,11 +127,11 @@ class ExperimentOrchestrator:
                         display_name=raw.get("display_name") or raw.get("name"),
                         aliases=new_aliases,
                         chemical_formula=raw.get("chemical_formula"),
-                        role=role,
+                        roles=list(dict.fromkeys(incoming_roles)),
                     )
                 else:
-                    combined = list(dict.fromkeys([*existing.aliases, *new_aliases]))
-                    existing.aliases = combined
+                    existing.aliases = list(dict.fromkeys([*existing.aliases, *new_aliases]))
+                    existing.roles = list(dict.fromkeys([*existing.roles, *incoming_roles]))
         return list(seen.values())
 
     @staticmethod
@@ -146,10 +168,8 @@ class ExperimentOrchestrator:
 
         Returns (events, extra_review_issues). Catalogs may be mutated (auto-add).
         """
-        import unicodedata
-        from sci_data_logger.utils.date_heuristics import label_to_iso
-
         issues: list[ReviewIssue] = []
+        stub_ids: set[str] = set()
 
         def _norm(s: str) -> str:
             nfkd = unicodedata.normalize("NFKD", s)
@@ -183,6 +203,7 @@ class ExperimentOrchestrator:
                 return m
             new_mat = Material(canonical_name=ref.strip())
             materials_catalog.append(new_mat)
+            stub_ids.add(new_mat.material_id)
             issues.append(ReviewIssue(
                 severity="warning",
                 title="Material reference auto-created",
@@ -223,6 +244,18 @@ class ExperimentOrchestrator:
                         else [],
                     ))
 
+        # Infer a default year from any full YMD label across all pages/events.
+        # If none exists we leave M/D-only events with date_iso=None rather than
+        # silently substituting datetime.now().year — see label_to_iso docstring.
+        date_label_pool: list[str | None] = []
+        for page in pages:
+            for evt in page.extracted_events:
+                date_label_pool.append(evt.date_label)
+                if evt.date_iso:
+                    date_label_pool.append(evt.date_iso)
+            date_label_pool.extend(page.extracted_dates)
+        inferred_year = infer_default_year(date_label_pool)
+
         # Collect, resolve refs
         all_events: list[tuple[int, ExperimentEvent]] = []
         for page_idx, page in enumerate(pages):
@@ -249,7 +282,9 @@ class ExperimentOrchestrator:
                 if instr_id:
                     ins = find_instrument(instr_id)
                     instr_id = ins.instrument_id if ins else None
-                new_date_iso = evt.date_iso or label_to_iso(evt.date_label)
+                new_date_iso = evt.date_iso or label_to_iso(
+                    evt.date_label, default_year=inferred_year
+                )
                 new_evt = evt.model_copy(update={
                     "inputs": new_inputs,
                     "outputs": new_outputs,
@@ -268,7 +303,80 @@ class ExperimentOrchestrator:
         final: list[ExperimentEvent] = []
         for new_idx, (_, e) in enumerate(all_events, start=1):
             final.append(e.model_copy(update={"sequence_index": new_idx}))
+
+        # Reconcile pass: a stub created from a raw ref may collide with a real
+        # catalog entry by canonical_name (case-insensitive NFKD) or by being
+        # listed as one of its aliases. Merge stub -> real and rewrite refs.
+        final = self._reconcile_stub_materials(
+            final, materials_catalog, stub_ids, _norm
+        )
         return final, issues
+
+    @staticmethod
+    def _reconcile_stub_materials(
+        events: list[ExperimentEvent],
+        materials_catalog: list[Material],
+        stub_ids: set[str],
+        norm,
+    ) -> list[ExperimentEvent]:
+        if not stub_ids:
+            return events
+        # Build id -> real-id remap by scanning stubs against non-stub entries.
+        id_remap: dict[str, str] = {}
+        stubs = [m for m in materials_catalog if m.material_id in stub_ids]
+        reals = [m for m in materials_catalog if m.material_id not in stub_ids]
+        for stub in stubs:
+            stub_canon_norm = norm(stub.canonical_name)
+            target: Material | None = None
+            for real in reals:
+                if norm(real.canonical_name) == stub_canon_norm:
+                    target = real
+                    break
+                if any(norm(a) == stub_canon_norm for a in real.aliases):
+                    target = real
+                    break
+            if target is None:
+                continue
+            id_remap[stub.material_id] = target.material_id
+            # Preserve the stub's name as an alias on the real entry if not
+            # already present (canonical or alias).
+            if norm(stub.canonical_name) != norm(target.canonical_name) and not any(
+                norm(a) == stub_canon_norm for a in target.aliases
+            ):
+                target.aliases = [*target.aliases, stub.canonical_name]
+        if not id_remap:
+            return events
+        # Remove merged stubs from catalog.
+        merged_ids = set(id_remap.keys())
+        materials_catalog[:] = [
+            m for m in materials_catalog if m.material_id not in merged_ids
+        ]
+        # Rewrite event io refs.
+        rewritten: list[ExperimentEvent] = []
+        for e in events:
+            new_inputs = [
+                EventIO(
+                    material_ref=id_remap.get(io.material_ref, io.material_ref),
+                    amount=io.amount,
+                    notes=io.notes,
+                )
+                for io in e.inputs
+            ]
+            new_outputs = [
+                EventOutput(
+                    material_ref=id_remap.get(io.material_ref, io.material_ref),
+                    amount=io.amount,
+                    notes=io.notes,
+                    target_phase=io.target_phase,
+                    failure_marker=io.failure_marker,
+                )
+                for io in e.outputs
+            ]
+            rewritten.append(e.model_copy(update={
+                "inputs": new_inputs,
+                "outputs": new_outputs,
+            }))
+        return rewritten
 
     @staticmethod
     def _basic_review(record: ExperimentRecord) -> list[ReviewIssue]:

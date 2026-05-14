@@ -34,6 +34,10 @@ class Settings(BaseSettings):
         default=1_500_000,
         alias="QWEN_IMAGE_DOWNSCALE_THRESHOLD_BYTES",
     )
+    vlm_concurrency: int = Field(
+        default=4,
+        alias="SCI_DATA_LOGGER_VLM_CONCURRENCY",
+    )
 
     storage_root: Path = Field(
         default=Path(".local_data"),
