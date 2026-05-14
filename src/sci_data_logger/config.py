@@ -34,6 +34,9 @@ class Settings(BaseSettings):
         default=1_500_000,
         alias="QWEN_IMAGE_DOWNSCALE_THRESHOLD_BYTES",
     )
+    qwen_max_retries: int = Field(default=3, alias="QWEN_MAX_RETRIES")
+    qwen_retry_base_delay: float = Field(default=1.0, alias="QWEN_RETRY_BASE_DELAY")
+    qwen_retry_max_delay: float = Field(default=20.0, alias="QWEN_RETRY_MAX_DELAY")
 
     storage_root: Path = Field(
         default=Path(".local_data"),
