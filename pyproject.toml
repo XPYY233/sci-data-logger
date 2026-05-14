@@ -9,6 +9,7 @@ dependencies = [
     "openai>=1.90.0",
     "Pillow>=10.0.0",
     "pydantic>=2.8.0",
+    "pypdfium2>=4.30",
     "pydantic-settings>=2.4.0",
     "python-multipart>=0.0.9",
     "rich>=13.8.0",

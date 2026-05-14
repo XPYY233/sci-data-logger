@@ -33,6 +33,9 @@ class _BlockingDocumentProcessor:
                 self._in_flight -= 1
         return PagePacket(source_path=str(path))
 
+    def analyze_pages(self, path):
+        return [self.analyze_page(path)]
+
 
 def test_orchestrator_dispatches_pages_concurrently(tmp_path):
     images = []
@@ -86,6 +89,9 @@ def test_orchestrator_falls_back_to_sequential_when_concurrency_one(tmp_path, mo
         def analyze_page(self, path):
             seen_order.append(str(path))
             return PagePacket(source_path=str(path))
+
+        def analyze_pages(self, path):
+            return [self.analyze_page(path)]
 
     try:
         orch = ExperimentOrchestrator(document_processor=_Sequential())

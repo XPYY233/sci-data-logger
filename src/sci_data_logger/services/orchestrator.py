@@ -35,7 +35,11 @@ class ExperimentOrchestrator:
         self.instrument_service = instrument_service or InstrumentService()
 
     def create_draft(self, request: DraftExperimentRequest) -> ExperimentRecord:
-        pages = self._analyze_pages_concurrently(request.image_paths)
+        # Concurrent per-file fanout. Each file yields a list of PagePackets
+        # (PDFs expand to multiple pages, single images to one). Flatten while
+        # preserving file order and within-PDF page order.
+        per_file_results = self._analyze_pages_concurrently(request.image_paths)
+        pages = [pkt for sublist in per_file_results for pkt in sublist]
         measurements = [
             self.instrument_service.parse_file(path) for path in request.instrument_file_paths
         ]
@@ -71,15 +75,19 @@ class ExperimentOrchestrator:
             record.status = ReviewStatus.NEEDS_REVIEW
         return record
 
-    def _analyze_pages_concurrently(self, image_paths) -> list[PagePacket]:
-        """Dispatch VLM page analyses with bounded concurrency, preserving input order."""
+    def _analyze_pages_concurrently(self, image_paths) -> list[list[PagePacket]]:
+        """Dispatch VLM page analyses with bounded concurrency, preserving input order.
+
+        Returns a list aligned with image_paths; each element is the list of
+        PagePackets that file expanded into (>=1 for PDFs).
+        """
         if not image_paths:
             return []
         max_workers = max(1, int(get_settings().vlm_concurrency or 1))
         if max_workers <= 1 or len(image_paths) <= 1:
-            return [self.document_processor.analyze_page(p) for p in image_paths]
+            return [self.document_processor.analyze_pages(p) for p in image_paths]
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            return list(ex.map(self.document_processor.analyze_page, image_paths))
+            return list(ex.map(self.document_processor.analyze_pages, image_paths))
 
     @staticmethod
     def _merge_materials_catalog(pages: list[PagePacket]) -> list[Material]:

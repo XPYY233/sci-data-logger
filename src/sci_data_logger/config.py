@@ -55,6 +55,19 @@ class Settings(BaseSettings):
         alias="SCI_DATA_LOGGER_GROUP_TEMPLATE",
     )
 
+    image_autocontrast: bool = Field(
+        default=True,
+        alias="SCI_DATA_LOGGER_IMAGE_AUTOCONTRAST",
+    )
+    image_deskew: bool = Field(
+        default=True,
+        alias="SCI_DATA_LOGGER_IMAGE_DESKEW",
+    )
+    pdf_render_dpi: int = Field(
+        default=200,
+        alias="SCI_DATA_LOGGER_PDF_RENDER_DPI",
+    )
+
     def ensure_storage(self) -> Path:
         self.storage_root.mkdir(parents=True, exist_ok=True)
         return self.storage_root
