@@ -14,6 +14,9 @@ class _FakeDocumentProcessor:
     def analyze_page(self, path):
         return self._pages.pop(0)
 
+    def analyze_pages(self, path):
+        return [self._pages.pop(0)]
+
 
 def test_merge_materials_catalog_deduplicates_across_pages(tmp_path):
     page1 = PagePacket(source_path="p1.jpg")

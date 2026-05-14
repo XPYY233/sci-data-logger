@@ -30,7 +30,13 @@ class ExperimentOrchestrator:
         self.instrument_service = instrument_service or InstrumentService()
 
     def create_draft(self, request: DraftExperimentRequest) -> ExperimentRecord:
-        pages = [self.document_processor.analyze_page(path) for path in request.image_paths]
+        # Multi-page expansion: each input file may yield multiple PagePackets (PDFs).
+        # Ordering is preserved: file 0's pages come before file 1's, and within each
+        # PDF page 1 precedes page 2, etc.
+        per_file_results = [
+            self.document_processor.analyze_pages(path) for path in request.image_paths
+        ]
+        pages = [pkt for sublist in per_file_results for pkt in sublist]
         measurements = [
             self.instrument_service.parse_file(path) for path in request.instrument_file_paths
         ]

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
+import tempfile
 from pathlib import Path
 from typing import Any
 
+from sci_data_logger.config import get_settings
 from sci_data_logger.prompts import PAGE_ANALYSIS_PROMPT
 from sci_data_logger.schemas import (
     EvidenceRef,
@@ -14,11 +17,15 @@ from sci_data_logger.schemas import (
     new_id,
 )
 from sci_data_logger.services.term_aliaser import TermAliaser
+from sci_data_logger.utils.image_preprocessing import preprocess_for_vlm
 from sci_data_logger.vlm import QwenVLMClient
+
+logger = logging.getLogger(__name__)
 
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 TEXT_SUFFIXES = {".txt", ".md"}
+PDF_SUFFIXES = {".pdf"}
 
 
 class DocumentProcessor:
@@ -33,18 +40,102 @@ class DocumentProcessor:
         self.term_aliaser = term_aliaser or TermAliaser()
 
     def analyze_page(self, source_path: Path) -> PagePacket:
-        suffix = source_path.suffix.lower()
-        if suffix in IMAGE_SUFFIXES:
-            return self._analyze_image(source_path)
-        if suffix in TEXT_SUFFIXES:
-            return self._analyze_text(source_path)
+        """Single-packet API kept for backward compatibility — returns first page only."""
+        packets = self.analyze_pages(source_path)
+        if packets:
+            return packets[0]
         return PagePacket(
             source_path=str(source_path),
-            open_questions=[f"暂不支持该页面文件类型：{suffix or 'unknown'}"],
+            open_questions=[f"暂不支持该页面文件类型：{source_path.suffix or 'unknown'}"],
         )
 
+    def analyze_pages(self, source_path: Path) -> list[PagePacket]:
+        suffix = source_path.suffix.lower()
+        if suffix in IMAGE_SUFFIXES:
+            return [self._analyze_image(source_path)]
+        if suffix in TEXT_SUFFIXES:
+            return [self._analyze_text(source_path)]
+        if suffix in PDF_SUFFIXES:
+            return self._analyze_pdf(source_path)
+        return [
+            PagePacket(
+                source_path=str(source_path),
+                open_questions=[f"暂不支持该页面文件类型：{suffix or 'unknown'}"],
+            )
+        ]
+
+    def _analyze_pdf(self, pdf_path: Path) -> list[PagePacket]:
+        import shutil
+
+        import pypdfium2 as pdfium
+
+        settings = get_settings()
+        scale = settings.pdf_render_dpi / 72.0
+        tmp_dir = Path(tempfile.mkdtemp(prefix="sci_pdf_"))
+        packets: list[PagePacket] = []
+        pdf = pdfium.PdfDocument(str(pdf_path))
+        try:
+            for i in range(len(pdf)):
+                page = pdf[i]
+                pil_img = page.render(scale=scale).to_pil()
+                temp_path = tmp_dir / f"page_{i + 1}.jpg"
+                # JPEG can't store alpha; ensure RGB before save.
+                pil_img.convert("RGB").save(temp_path, format="JPEG", quality=92)
+                packet = self._analyze_image(temp_path)
+                # Rewrite source_path to point back at the originating PDF + page index
+                # so downstream consumers preserve traceability to the user's file.
+                packet.source_path = f"{pdf_path}#page={i + 1}"
+                packet.evidence_refs.append(
+                    EvidenceRef(
+                        source_type=SourceType.NOTEBOOK_IMAGE,
+                        source_id=packet.page_id,
+                        locator={"path": str(pdf_path), "pdf_page": i + 1},
+                        confidence=0.75,
+                    )
+                )
+                packets.append(packet)
+        finally:
+            pdf.close()
+            # Rendered page JPEGs were only needed as VLM inputs; drop the whole dir.
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        return packets
+
     def _analyze_image(self, image_path: Path) -> PagePacket:
-        model_result = self.vlm_client.analyze_image(image_path, PAGE_ANALYSIS_PROMPT)
+        # Pre-process (deskew + autocontrast) before sending to the VLM.
+        # On any Pillow failure we silently fall through to the original path —
+        # preprocessing is an enhancement, not a hard requirement.
+        settings = get_settings()
+        effective_path = image_path
+        tmp_preproc_path: Path | None = None
+        if settings.image_autocontrast or settings.image_deskew:
+            try:
+                from PIL import Image as _PILImage
+
+                with _PILImage.open(image_path) as raw:
+                    raw.load()
+                    processed = preprocess_for_vlm(
+                        raw,
+                        autocontrast=settings.image_autocontrast,
+                        deskew=settings.image_deskew,
+                    )
+                tmp_preproc_path = Path(
+                    tempfile.mkstemp(prefix="sci_preproc_", suffix=".jpg")[1]
+                )
+                processed.save(tmp_preproc_path, format="JPEG", quality=92)
+                effective_path = tmp_preproc_path
+            except (OSError, RuntimeError, ValueError) as exc:
+                logger.warning(
+                    "image preprocessing skipped for %s: %s", image_path, exc
+                )
+
+        try:
+            model_result = self.vlm_client.analyze_image(effective_path, PAGE_ANALYSIS_PROMPT)
+        finally:
+            if tmp_preproc_path is not None:
+                try:
+                    tmp_preproc_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
         payload = model_result.get("json")
         if not isinstance(payload, dict):
             payload = {
