@@ -7,18 +7,30 @@ from pathlib import Path
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel, ConfigDict
+from sqlmodel import Session
 
 from sci_data_logger.config import Settings, get_settings
+from sci_data_logger.db import repository
+from sci_data_logger.db.session import get_session
 from sci_data_logger.schemas import (
     DraftExperimentMetadataRequest,
     DraftExperimentRequest,
     ExperimentRecord,
+    ExperimentSummary,
+    ReviewStatus,
 )
 from sci_data_logger.services.orchestrator import ExperimentOrchestrator
 
 router = APIRouter()
 SAFE_PATH_PART_RE = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+class StatusUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: ReviewStatus
 
 
 @router.get("/health")
@@ -34,7 +46,10 @@ def health() -> dict[str, object]:
 
 
 @router.post("/experiments/draft", response_model=ExperimentRecord)
-def create_experiment_draft(request: DraftExperimentMetadataRequest) -> ExperimentRecord:
+def create_experiment_draft(
+    request: DraftExperimentMetadataRequest,
+    session: Session = Depends(get_session),
+) -> ExperimentRecord:
     """Create a draft from JSON metadata only.
 
     HTTP clients must use the upload endpoint for files so JSON bodies cannot
@@ -49,7 +64,9 @@ def create_experiment_draft(request: DraftExperimentMetadataRequest) -> Experime
         operator=request.operator,
         title=request.title,
     )
-    return ExperimentOrchestrator().create_draft(draft_request)
+    record = ExperimentOrchestrator().create_draft(draft_request)
+    repository.save_record(session, record)
+    return record
 
 
 @router.post("/experiments/draft/upload", response_model=ExperimentRecord)
@@ -62,6 +79,7 @@ def create_experiment_draft_from_uploads(
     group_id: Annotated[str | None, Form()] = None,
     operator: Annotated[str | None, Form()] = None,
     title: Annotated[str | None, Form()] = None,
+    session: Session = Depends(get_session),
 ) -> ExperimentRecord:
     settings = get_settings()
     image_paths = _save_uploads(images, settings, experiment_id, "images")
@@ -81,7 +99,92 @@ def create_experiment_draft_from_uploads(
         operator=operator,
         title=title,
     )
-    return ExperimentOrchestrator().create_draft(draft_request)
+    record = ExperimentOrchestrator().create_draft(draft_request)
+    repository.save_record(session, record)
+    return record
+
+
+@router.get("/experiments", response_model=list[ExperimentSummary])
+def list_experiments(
+    project_id: str | None = Query(default=None),
+    group_id: str | None = Query(default=None),
+    status_filter: str | None = Query(default=None, alias="status"),
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+) -> list[ExperimentSummary]:
+    rows = repository.list_records(
+        session,
+        project_id=project_id,
+        group_id=group_id,
+        status=status_filter,
+        limit=limit,
+        offset=offset,
+    )
+    return [
+        ExperimentSummary(
+            experiment_id=r.experiment_id,
+            project_id=r.project_id,
+            group_id=r.group_id,
+            operator=r.operator,
+            title=r.title,
+            status=r.status,
+            created_at=r.created_at,
+            updated_at=r.updated_at,
+        )
+        for r in rows
+    ]
+
+
+@router.get("/experiments/{experiment_id}", response_model=ExperimentRecord)
+def get_experiment(
+    experiment_id: str,
+    session: Session = Depends(get_session),
+) -> ExperimentRecord:
+    record = repository.get_record(session, experiment_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="experiment not found")
+    return record
+
+
+@router.patch("/experiments/{experiment_id}/status", response_model=ExperimentRecord)
+def patch_experiment_status(
+    experiment_id: str,
+    body: StatusUpdateRequest,
+    session: Session = Depends(get_session),
+) -> ExperimentRecord:
+    record = repository.update_review_status(session, experiment_id, body.status)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="experiment not found")
+    return record
+
+
+@router.post(
+    "/experiments/{experiment_id}/review-issues/{issue_id}/resolve",
+    response_model=ExperimentRecord,
+)
+def resolve_review_issue_endpoint(
+    experiment_id: str,
+    issue_id: str,
+    session: Session = Depends(get_session),
+) -> ExperimentRecord:
+    if repository.get_record(session, experiment_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="experiment not found")
+    record = repository.resolve_review_issue(session, experiment_id, issue_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="review issue not found")
+    return record
+
+
+@router.delete("/experiments/{experiment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_experiment(
+    experiment_id: str,
+    session: Session = Depends(get_session),
+) -> None:
+    deleted = repository.delete_record(session, experiment_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="experiment not found")
+    return None
 
 
 @router.get("/runtime/config")
