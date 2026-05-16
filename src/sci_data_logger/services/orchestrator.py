@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import unicodedata
+
 from sci_data_logger.schemas import (
     DataAsset,
     DraftExperimentRequest,
@@ -16,6 +18,20 @@ from sci_data_logger.schemas import (
 )
 from sci_data_logger.services.document import DocumentProcessor
 from sci_data_logger.services.instrument import InstrumentService
+
+
+def _norm_instrument_token(s: str | None) -> str:
+    """NFKD-fold, lowercase, strip whitespace and common Chinese instrument suffixes (炉/箱/机)."""
+    if not s:
+        return ""
+    nfkd = unicodedata.normalize("NFKD", str(s))
+    folded = "".join(c for c in nfkd if not unicodedata.combining(c)).lower().strip()
+    # Strip trailing common suffixes once to make "707炉" match "707".
+    for suffix in ("炉", "箱", "机", "仪"):
+        if folded.endswith(suffix):
+            folded = folded[:-1].strip()
+            break
+    return folded
 
 
 class ExperimentOrchestrator:
@@ -114,7 +130,13 @@ class ExperimentOrchestrator:
 
     @staticmethod
     def _merge_instruments_catalog(pages: list[PagePacket]) -> list[Instrument]:
-        """跨页合并 instruments_catalog，去重 key: (technique, instrument_label)。"""
+        """跨页合并 instruments_catalog，去重 key: (technique, normalized instrument_label)。
+
+        normalized 形式做 NFKD + lower + 去尾缀（炉/箱/机/仪），让 "707炉" / "707" / "７０７" 视为同一台。
+        合并时把不同写法收集到 aliases。
+        """
+        # Key part for the label: normalized string, or None when label itself is None
+        # (preserve the distinction between "labelled" and "unlabelled" instruments).
         seen: dict[tuple[str, str | None], Instrument] = {}
         for page in pages:
             catalog_items = (
@@ -125,15 +147,39 @@ class ExperimentOrchestrator:
                     continue
                 tech = (raw.get("technique") or "other").strip()
                 label = raw.get("instrument_label")
-                key = (tech, label)
-                if key not in seen:
+                model = raw.get("model")
+                norm_label = _norm_instrument_token(label) if label is not None else None
+                key = (tech, norm_label)
+                existing = seen.get(key)
+                if existing is None:
+                    raw_aliases = [str(a) for a in (raw.get("aliases") or []) if a]
                     seen[key] = Instrument(
                         technique=tech,
                         instrument_label=label,
                         location=raw.get("location"),
                         manufacturer=raw.get("manufacturer"),
-                        model=raw.get("model"),
+                        model=model,
+                        aliases=raw_aliases,
                     )
+                else:
+                    # Record alternative surface forms as aliases. We compare *raw strings*
+                    # against the canonical label/model (since they normalize equal by
+                    # construction of `key`, the only thing worth tracking is a different
+                    # spelling). Explicit alias entries always pass through.
+                    canon_label = existing.instrument_label
+                    canon_model = existing.model
+                    incoming: list[str] = []
+                    if label and label != canon_label:
+                        incoming.append(str(label))
+                    if model and model != canon_model and model != canon_label:
+                        incoming.append(str(model))
+                    for a in raw.get("aliases") or []:
+                        if a:
+                            incoming.append(str(a))
+                    if incoming:
+                        existing.aliases = list(
+                            dict.fromkeys([*existing.aliases, *incoming])
+                        )
         return list(seen.values())
 
     def _resolve_and_merge_events(
@@ -146,7 +192,6 @@ class ExperimentOrchestrator:
 
         Returns (events, extra_review_issues). Catalogs may be mutated (auto-add).
         """
-        import unicodedata
         from sci_data_logger.utils.date_heuristics import label_to_iso
 
         issues: list[ReviewIssue] = []
@@ -194,6 +239,7 @@ class ExperimentOrchestrator:
             if not ref:
                 return None
             ref_lower = ref.strip().lower()
+            # 1. exact lowercase against "technique@label" / label / model / technique
             for ins in instruments_catalog:
                 tokens = [
                     f"{ins.technique}@{ins.instrument_label}" if ins.instrument_label else None,
@@ -204,6 +250,14 @@ class ExperimentOrchestrator:
                 for tok in tokens:
                     if tok and tok.strip().lower() == ref_lower:
                         return ins
+            # 2. fuzzy: NFKD-fold + suffix-strip on both sides; also check aliases.
+            ref_norm = _norm_instrument_token(ref)
+            if ref_norm:
+                for ins in instruments_catalog:
+                    candidates = [ins.instrument_label, ins.model, *ins.aliases]
+                    for cand in candidates:
+                        if cand and _norm_instrument_token(cand) == ref_norm:
+                            return ins
             return None
 
         # Fallback: pages without extracted_events but with extracted_steps (legacy) -> upgrade

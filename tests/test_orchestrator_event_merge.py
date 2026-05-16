@@ -70,6 +70,93 @@ def test_merge_instruments_catalog_dedup_by_technique_and_label(tmp_path):
     assert labels == ["707", None]
 
 
+def test_merge_instruments_catalog_dedup_normalizes_label_suffix(tmp_path):
+    page1 = PagePacket(source_path="p1.jpg")
+    page1.raw_model_output = {"json": {"instruments_catalog": [
+        {"technique": "tube_furnace", "instrument_label": "707炉"},
+    ]}}
+    page2 = PagePacket(source_path="p2.jpg")
+    page2.raw_model_output = {"json": {"instruments_catalog": [
+        {"technique": "tube_furnace", "instrument_label": "707"},
+    ]}}
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    img2 = tmp_path / "p2.jpg"
+    img2.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page1, page2]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-INSTR-SUF", image_paths=[img1, img2],
+    ))
+    assert len(record.instruments_catalog) == 1
+    ins = record.instruments_catalog[0]
+    # canonical is the first-seen ("707炉"); the second spelling becomes an alias.
+    assert ins.instrument_label == "707炉"
+    assert "707" in ins.aliases
+
+
+def test_merge_instruments_catalog_dedup_handles_nfkd_fullwidth_digits(tmp_path):
+    page1 = PagePacket(source_path="p1.jpg")
+    page1.raw_model_output = {"json": {"instruments_catalog": [
+        {"technique": "tube_furnace", "instrument_label": "７０７"},
+    ]}}
+    page2 = PagePacket(source_path="p2.jpg")
+    page2.raw_model_output = {"json": {"instruments_catalog": [
+        {"technique": "tube_furnace", "instrument_label": "707"},
+    ]}}
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    img2 = tmp_path / "p2.jpg"
+    img2.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page1, page2]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-INSTR-FW", image_paths=[img1, img2],
+    ))
+    assert len(record.instruments_catalog) == 1
+
+
+def test_resolve_events_links_instrument_via_alias_fuzzy(tmp_path):
+    from sci_data_logger.schemas import EventIO, ExperimentEvent
+
+    page1 = PagePacket(source_path="p1.jpg")
+    page1.raw_model_output = {"json": {
+        "materials_catalog": [
+            {"canonical_name": "LiCl", "role": "precursor"},
+        ],
+        "instruments_catalog": [
+            {"technique": "tube_furnace", "instrument_label": "707炉"},
+        ],
+    }}
+    page1.extracted_events = [
+        ExperimentEvent(
+            sequence_index=1,
+            action_type="heat",
+            description="退火",
+            instrument_ref="707",  # fuzzy: catalog has "707炉"
+            inputs=[EventIO(material_ref="LiCl")],
+            outputs=[],
+            page_ref=page1.page_id,
+        ),
+    ]
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page1]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-INSTR-FUZZY", image_paths=[img1],
+    ))
+    assert len(record.instruments_catalog) == 1
+    instr = record.instruments_catalog[0]
+    assert record.events[0].instrument_ref == instr.instrument_id
+
+
 def test_resolve_events_links_local_refs_to_catalog_ids(tmp_path):
     from sci_data_logger.schemas import ExperimentEvent, EventIO, EventOutput
 

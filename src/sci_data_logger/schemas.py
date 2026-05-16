@@ -106,6 +106,7 @@ class Instrument(BaseModel):
     location: str | None = None
     manufacturer: str | None = None
     model: str | None = None
+    aliases: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
