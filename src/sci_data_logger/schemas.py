@@ -167,6 +167,8 @@ class PagePacket(BaseModel):
     page_id: str = Field(default_factory=lambda: new_id("page"))
     source_path: str
     page_types: list[str] = Field(default_factory=lambda: ["unknown"])
+    page_number_hint: int | None = None
+    captured_at: str | None = None  # ISO 8601, from EXIF DateTimeOriginal if available
     sample_id: str | None = None
     text_blocks: list[str] = Field(default_factory=list)
     table_blocks: list[dict[str, Any]] = Field(default_factory=list)
