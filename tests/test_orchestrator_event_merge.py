@@ -221,3 +221,77 @@ def test_end_to_end_event_centric_record_from_mock_vlm(tmp_path, monkeypatch):
 
     # Status
     assert record.status.value == "needs_review"
+
+
+def test_merge_samples_catalog_dedups_across_pages_with_aliases(tmp_path):
+    page1 = PagePacket(source_path="p1.jpg")
+    page1.raw_model_output = {"json": {"samples_catalog": [
+        {"canonical_label": "S3", "aliases": ["#3"]},
+    ]}}
+    page2 = PagePacket(source_path="p2.jpg")
+    page2.raw_model_output = {"json": {"samples_catalog": [
+        {"canonical_label": "样品3"},
+    ]}}
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    img2 = tmp_path / "p2.jpg"
+    img2.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page1, page2]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-SAMPLE", image_paths=[img1, img2],
+    ))
+    assert len(record.samples_catalog) == 1
+    s = record.samples_catalog[0]
+    # canonical normalization treats "S3" / "#3" / "样品3" as the same key.
+    assert "#3" in s.aliases
+    assert "样品3" in s.aliases or s.canonical_label == "样品3"
+
+
+def test_resolve_events_links_sample_via_local_ref(tmp_path):
+    from sci_data_logger.schemas import ExperimentEvent
+
+    page1 = PagePacket(source_path="p1.jpg")
+    page1.raw_model_output = {"json": {"samples_catalog": [
+        {"canonical_label": "S3", "aliases": ["#3"]},
+    ]}}
+    page1.extracted_events = [
+        ExperimentEvent(
+            sequence_index=1,
+            action_type="mill",
+            description="球磨样品",
+            sample_ref="S3",
+            page_ref=page1.page_id,
+        ),
+    ]
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page1]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-SR", image_paths=[img1],
+    ))
+    assert len(record.samples_catalog) == 1
+    smp = record.samples_catalog[0]
+    assert record.events[0].sample_ref == smp.sample_id
+
+
+def test_orchestrator_falls_back_to_page_sample_id_when_catalog_missing(tmp_path):
+    page1 = PagePacket(source_path="p1.jpg", sample_id="S3")
+    # No samples_catalog in raw_model_output payload.
+    page1.raw_model_output = {"json": {}}
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page1]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-LEGACY", image_paths=[img1],
+    ))
+    assert len(record.samples_catalog) == 1
+    assert record.samples_catalog[0].canonical_label == "S3"

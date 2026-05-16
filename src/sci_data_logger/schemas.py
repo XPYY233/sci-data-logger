@@ -73,6 +73,17 @@ class Material(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class Sample(BaseModel):
+    """Catalog-level sample entry, deduplicated across pages."""
+    sample_id: str = Field(default_factory=lambda: new_id("sample"))
+    canonical_label: str
+    display_label: str | None = None
+    aliases: list[str] = Field(default_factory=list)
+    target_material_ref: str | None = None
+    batch: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class ProtocolStep(BaseModel):
     step_id: str = Field(default_factory=lambda: new_id("step"))
     step_type: str
@@ -132,6 +143,7 @@ class ExperimentEvent(BaseModel):
     date_iso: str | None = None
     location: str | None = None
     instrument_ref: str | None = None
+    sample_ref: str | None = None
     operator: str | None = None
 
     # Body
@@ -168,6 +180,7 @@ class PagePacket(BaseModel):
     source_path: str
     page_types: list[str] = Field(default_factory=lambda: ["unknown"])
     sample_id: str | None = None
+    extracted_samples: list[str] = Field(default_factory=list)
     text_blocks: list[str] = Field(default_factory=list)
     table_blocks: list[dict[str, Any]] = Field(default_factory=list)
     extracted_materials: list[MaterialInput] = Field(default_factory=list)
@@ -215,6 +228,7 @@ class ExperimentRecord(BaseModel):
     # New event-centric tables (Phase 0)
     materials_catalog: list[Material] = Field(default_factory=list)
     instruments_catalog: list[Instrument] = Field(default_factory=list)
+    samples_catalog: list[Sample] = Field(default_factory=list)
     events: list[ExperimentEvent] = Field(default_factory=list)
 
     # Source / measurement (unchanged)

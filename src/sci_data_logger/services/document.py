@@ -69,6 +69,9 @@ class DocumentProcessor:
         if payload.get("_parse_error") and raw_text and not text_blocks:
             text_blocks.append(str(raw_text))
 
+        extracted_samples = self._strings_from_payload(
+            payload.get("samples", [])
+        ) or self._strings_from_payload(payload.get("extracted_samples", []))
         materials = self._materials_from_payload(payload.get("materials", []), image_path)
         steps = self._steps_from_payload(payload.get("steps", []), image_path)
         observations = self._observations_from_payload(payload.get("observations", []), image_path)
@@ -118,6 +121,7 @@ class DocumentProcessor:
             source_path=str(image_path),
             page_types=page_types,
             sample_id=payload.get("sample_id"),
+            extracted_samples=extracted_samples,
             text_blocks=text_blocks,
             table_blocks=table_blocks,
             extracted_materials=materials,
@@ -404,6 +408,7 @@ class DocumentProcessor:
                 date_iso=raw.get("date_iso"),
                 location=raw.get("location"),
                 instrument_ref=raw.get("instrument_ref_local"),
+                sample_ref=raw.get("sample_ref_local"),
                 operator=raw.get("operator"),
                 action_type=action_type,
                 description=str(raw["description"]),
