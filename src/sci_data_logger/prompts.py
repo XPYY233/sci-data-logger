@@ -24,6 +24,8 @@ PAGE_ANALYSIS_PROMPT = """你是材料科研实验记录解析助手，专门处
    - `extracted_facts`：兜底扁平字典，把上面四类没装下的标量事实放这里（key 用 snake_case 英文，值是 FieldValue 对象）。优先把内容塞进 materials/steps/observations，extracted_facts 只放剩余的。
 
 4. 元信息：
+   - `page_number_hint`: integer or null. 视觉上可见的页码（页眉手写数字、页脚 "P12" 等）；
+     没有就给 null。**不要臆造**。如果同页有多个候选，选最显眼的那个。
    - `open_questions`：你看不准的字段、笔迹模糊、涂改歧义、含义不清的缩写。list[str]。
    - `warnings`：本页存在的数据质量风险，如"该字段被划掉"、"算式可能有误"。list[str]。
    - `review_required`：bool。**满足任一条件必须为 true**：
@@ -90,6 +92,7 @@ PAGE_ANALYSIS_PROMPT = """你是材料科研实验记录解析助手，专门处
 
 {
   "page_type": ["synthesis_note", "calculation"],
+  "page_number_hint": 3,
   "sample_id": "Na4Mn9O18-batch3",
   "materials": [
     {"name": "Mn2O3", "role": "precursor", "amount": {"value": 1.5787, "unit": "g", "confidence": 0.9}},

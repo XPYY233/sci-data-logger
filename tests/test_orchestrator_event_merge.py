@@ -322,6 +322,46 @@ def test_orchestrator_material_dedup_accumulates_roles_across_pages(tmp_path):
     assert sorted(record.materials_catalog[0].roles) == ["byproduct", "precursor"]
 
 
+def test_global_event_sort_prefers_page_number_hint_over_upload_order(tmp_path):
+    from sci_data_logger.schemas import ExperimentEvent
+
+    # page_B is uploaded first but has hint=2; page_A is uploaded second with hint=1.
+    # Neither event has date_iso. Events from page_A must sort before events from page_B.
+    page_b = PagePacket(source_path="b.jpg", page_number_hint=2)
+    page_b.extracted_events = [
+        ExperimentEvent(
+            sequence_index=1,
+            action_type="mill",
+            description="from-page-B",
+            page_ref=page_b.page_id,
+        ),
+    ]
+    page_a = PagePacket(source_path="a.jpg", page_number_hint=1)
+    page_a.extracted_events = [
+        ExperimentEvent(
+            sequence_index=1,
+            action_type="weigh",
+            description="from-page-A",
+            page_ref=page_a.page_id,
+        ),
+    ]
+
+    img_b = tmp_path / "b.jpg"
+    img_b.write_bytes(b"x")
+    img_a = tmp_path / "a.jpg"
+    img_a.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page_b, page_a]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-SORT", image_paths=[img_b, img_a],
+    ))
+
+    assert len(record.events) == 2
+    descriptions = [e.description for e in record.events]
+    assert descriptions == ["from-page-A", "from-page-B"]
+
+
 def test_end_to_end_event_centric_record_from_mock_vlm(tmp_path, monkeypatch):
     """完整路径：mock VLM → DocumentProcessor → Orchestrator → ExperimentRecord."""
     from sci_data_logger.services.document import DocumentProcessor

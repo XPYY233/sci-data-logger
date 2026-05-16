@@ -31,6 +31,23 @@ TEXT_SUFFIXES = {".txt", ".md"}
 PDF_SUFFIXES = {".pdf"}
 
 
+def _read_capture_time(image_path: Path) -> str | None:
+    """Best-effort extraction of EXIF DateTimeOriginal as ISO 8601. Returns None on any failure."""
+    try:
+        from PIL import Image, ExifTags
+        with Image.open(image_path) as im:
+            exif = im._getexif() or {}
+        tag_map = {v: k for k, v in ExifTags.TAGS.items()}
+        raw = exif.get(tag_map.get("DateTimeOriginal")) or exif.get(tag_map.get("DateTime"))
+        if not raw:
+            return None
+        # EXIF format: "2026:05:14 09:23:41" → ISO "2026-05-14T09:23:41"
+        date_part, _, time_part = str(raw).partition(" ")
+        return f"{date_part.replace(':', '-')}T{time_part}" if time_part else None
+    except Exception:
+        return None
+
+
 class DocumentProcessor:
     """Convert notebook pages into page-level packets."""
 
@@ -191,6 +208,17 @@ class DocumentProcessor:
         page_types = page_types_raw if isinstance(page_types_raw, list) else [str(page_types_raw)]
         page_types = [str(pt) for pt in page_types] or ["unknown"]
 
+        # Parse page_number_hint (may be int or stringified int)
+        page_number_hint: int | None = None
+        hint_raw = payload.get("page_number_hint")
+        if hint_raw is not None:
+            try:
+                page_number_hint = int(hint_raw)
+            except (TypeError, ValueError):
+                page_number_hint = None
+
+        captured_at = _read_capture_time(image_path)
+
         if open_questions:
             review_required = True
         if any(
@@ -214,6 +242,8 @@ class DocumentProcessor:
             page_id=page_id,
             source_path=str(image_path),
             page_types=page_types,
+            page_number_hint=page_number_hint,
+            captured_at=captured_at,
             sample_id=payload.get("sample_id"),
             extracted_samples=extracted_samples,
             text_blocks=text_blocks,

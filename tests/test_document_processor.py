@@ -313,6 +313,50 @@ def test_catalog_parsing_from_vlm_payload(monkeypatch):
     assert page.raw_model_output["json"]["instruments_catalog"][0]["instrument_label"] == "707"
 
 
+def test_page_number_hint_parsed_from_vlm_payload(tmp_path: Path) -> None:
+    payload = {
+        "page_type": ["synthesis_note"],
+        "page_number_hint": "5",  # stringified int
+        "materials": [],
+        "steps": [],
+        "observations": [],
+        "instruments": [],
+        "text_blocks": [],
+        "table_blocks": [],
+        "extracted_facts": {},
+        "open_questions": [],
+        "warnings": [],
+        "review_required": False,
+    }
+    image_path = tmp_path / "page.jpg"
+    image_path.write_bytes(b"fake image")
+
+    page = DocumentProcessor(vlm_client=FakePayloadVLMClient(payload)).analyze_page(image_path)
+    assert page.page_number_hint == 5
+
+
+def test_page_number_hint_invalid_value_is_none(tmp_path: Path) -> None:
+    payload = {
+        "page_type": ["synthesis_note"],
+        "page_number_hint": "abc",
+        "materials": [],
+        "steps": [],
+        "observations": [],
+        "instruments": [],
+        "text_blocks": [],
+        "table_blocks": [],
+        "extracted_facts": {},
+        "open_questions": [],
+        "warnings": [],
+        "review_required": False,
+    }
+    image_path = tmp_path / "page.jpg"
+    image_path.write_bytes(b"fake image")
+
+    page = DocumentProcessor(vlm_client=FakePayloadVLMClient(payload)).analyze_page(image_path)
+    assert page.page_number_hint is None
+
+
 def test_events_parsing_with_local_refs():
     from pathlib import Path
     from sci_data_logger.services.document import DocumentProcessor

@@ -495,11 +495,23 @@ class ExperimentOrchestrator:
         # real entry sharing the same normalized label.
         self._reconcile_stub_samples(samples_catalog, all_events)
 
-        # Global sort: date_iso priority; missing -> (page_idx, sequence_index)
+        # Global sort: date_iso > page_number_hint > captured_at > (page_idx, sequence_index)
         def sort_key(item):
             page_idx, e = item
+            page = pages[page_idx]
             iso = e.date_iso or ""
-            return (iso == "", iso, page_idx, e.sequence_index)
+            # Priority: (has_date_iso, date_iso) > (has_page_number_hint, hint)
+            #          > (has_captured_at, captured_at) > (page_idx, sequence_index)
+            return (
+                iso == "",                                                   # False (has iso) sorts first
+                iso,
+                page.page_number_hint is None,                               # False (has hint) sorts first
+                page.page_number_hint if page.page_number_hint is not None else 0,
+                not page.captured_at,                                        # False (has captured_at) sorts first
+                page.captured_at or "",
+                page_idx,
+                e.sequence_index,
+            )
 
         all_events.sort(key=sort_key)
         final: list[ExperimentEvent] = []
