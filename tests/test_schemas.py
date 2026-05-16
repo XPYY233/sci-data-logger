@@ -187,3 +187,58 @@ def test_experiment_record_catalogs_and_compat_properties():
     assert rec2.steps[0].sequence_index == 1
     assert len(rec2.observations) == 1
     assert rec2.observations[0].value == "没合成"
+
+
+def test_sample_defaults_and_required_fields():
+    from sci_data_logger.schemas import Sample
+
+    s = Sample(canonical_label="S3")
+    assert s.canonical_label == "S3"
+    assert s.display_label is None
+    assert s.aliases == []
+    assert s.target_material_ref is None
+    assert s.batch is None
+    assert s.metadata == {}
+    assert s.sample_id.startswith("sample_")
+
+    s2 = Sample(canonical_label="样品3", display_label="样品 3",
+                aliases=["#3", "S3"], target_material_ref="mat_abc",
+                batch="2024-Q1")
+    assert s2.batch == "2024-Q1"
+    assert "#3" in s2.aliases
+    assert s2.target_material_ref == "mat_abc"
+
+
+def test_experiment_event_sample_ref_default_none():
+    from sci_data_logger.schemas import ExperimentEvent
+
+    e = ExperimentEvent(
+        sequence_index=1,
+        action_type="mill",
+        description="球磨",
+        page_ref="page_xxx",
+    )
+    assert e.sample_ref is None
+
+    e2 = ExperimentEvent(
+        sequence_index=2,
+        action_type="mill",
+        description="球磨",
+        page_ref="page_yyy",
+        sample_ref="sample_abc",
+    )
+    assert e2.sample_ref == "sample_abc"
+
+
+def test_experiment_record_samples_catalog_default_empty():
+    from sci_data_logger.schemas import ExperimentRecord, Sample
+
+    rec = ExperimentRecord(experiment_id="EXP-S")
+    assert rec.samples_catalog == []
+
+    rec2 = ExperimentRecord(
+        experiment_id="EXP-S2",
+        samples_catalog=[Sample(canonical_label="S3")],
+    )
+    assert len(rec2.samples_catalog) == 1
+    assert rec2.samples_catalog[0].canonical_label == "S3"

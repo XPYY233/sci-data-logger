@@ -16,6 +16,7 @@ from sci_data_logger.schemas import (
     PagePacket,
     ReviewIssue,
     ReviewStatus,
+    Sample,
     SourceType,
 )
 from sci_data_logger.services.document import DocumentProcessor
@@ -65,8 +66,9 @@ class ExperimentOrchestrator:
 
         materials_catalog = self._merge_materials_catalog(pages)
         instruments_catalog = self._merge_instruments_catalog(pages)
+        samples_catalog = self._merge_samples_catalog(pages)
         events, extra_issues = self._resolve_and_merge_events(
-            pages, materials_catalog, instruments_catalog
+            pages, materials_catalog, instruments_catalog, samples_catalog
         )
 
         record = ExperimentRecord(
@@ -79,6 +81,7 @@ class ExperimentOrchestrator:
             pages=pages,
             materials_catalog=materials_catalog,
             instruments_catalog=instruments_catalog,
+            samples_catalog=samples_catalog,
             events=events,
             measurements=measurements,
             metadata={"user_fields": request.user_fields},
@@ -210,11 +213,106 @@ class ExperimentOrchestrator:
                         )
         return list(seen.values())
 
+    @staticmethod
+    def _norm_sample_label(label: str) -> str:
+        """Normalize sample labels for dedup.
+
+        Treats '#3' / '样品3' / 'S3' / 'sample 3' as equivalent: NFKD-strip combining
+        marks, lowercase, strip whitespace, then peel off leading prefixes
+        (`#`, `样品`, `sample`, `sample `, plus the bare letter `s` when followed
+        by a digit). Looped because users mix e.g. '#样品3'.
+        """
+        import unicodedata
+
+        s = unicodedata.normalize("NFKD", label or "")
+        s = "".join(c for c in s if not unicodedata.combining(c)).lower().strip()
+        changed = True
+        while changed:
+            changed = False
+            for prefix in ("sample ", "sample", "样品", "#"):
+                if s.startswith(prefix):
+                    s = s[len(prefix):].strip()
+                    changed = True
+                    break
+            # bare 's' followed by digit -> drop the 's'
+            if len(s) >= 2 and s[0] == "s" and s[1].isdigit():
+                s = s[1:]
+                changed = True
+        return s
+
+    @classmethod
+    def _merge_samples_catalog(cls, pages: list[PagePacket]) -> list[Sample]:
+        """跨页合并 samples_catalog。
+
+        Dedup key: 归一化 canonical_label（去掉 '#', '样品', 'sample ' 前缀，
+        NFKD 后小写 strip）。aliases 合并；display_label 取第一次出现的。
+        Source priority per page:
+          1. raw_model_output.json.samples_catalog (structured)
+          2. page.extracted_samples (raw strings)
+          3. page.sample_id (legacy single field)
+        """
+        seen: dict[str, Sample] = {}
+
+        def _ingest(canonical: str, *, display: str | None, aliases: list[str],
+                    target_ref: str | None = None, batch: str | None = None) -> None:
+            canonical = (canonical or "").strip()
+            if not canonical:
+                return
+            key = cls._norm_sample_label(canonical)
+            if not key:
+                return
+            existing = seen.get(key)
+            clean_aliases = [str(a) for a in aliases if a]
+            if existing is None:
+                seen[key] = Sample(
+                    canonical_label=canonical,
+                    display_label=display or canonical,
+                    aliases=clean_aliases,
+                    target_material_ref=target_ref,
+                    batch=batch,
+                )
+            else:
+                combined = list(dict.fromkeys([*existing.aliases, *clean_aliases]))
+                # Track the original spelling as alias if it differs from canonical.
+                if canonical and canonical != existing.canonical_label and canonical not in combined:
+                    combined.append(canonical)
+                existing.aliases = combined
+                if existing.target_material_ref is None and target_ref:
+                    existing.target_material_ref = target_ref
+                if existing.batch is None and batch:
+                    existing.batch = batch
+
+        for page in pages:
+            catalog_items = (
+                (page.raw_model_output or {}).get("json", {}).get("samples_catalog") or []
+            )
+            for raw in catalog_items:
+                if not isinstance(raw, dict):
+                    continue
+                canon = raw.get("canonical_label") or raw.get("label") or raw.get("name")
+                if not canon:
+                    continue
+                _ingest(
+                    str(canon),
+                    display=raw.get("display_label"),
+                    aliases=list(raw.get("aliases") or []),
+                    target_ref=raw.get("target_material_ref"),
+                    batch=raw.get("batch"),
+                )
+            # Fallback: extracted_samples raw strings
+            if not catalog_items:
+                for s in page.extracted_samples or []:
+                    _ingest(str(s), display=None, aliases=[])
+                if page.sample_id:
+                    _ingest(str(page.sample_id), display=None, aliases=[])
+        return list(seen.values())
+
     def _resolve_and_merge_events(
         self,
         pages: list[PagePacket],
         materials_catalog: list[Material],
         instruments_catalog: list[Instrument],
+        samples_catalog: list[Sample] | None = None,
     ) -> tuple[list[ExperimentEvent], list[ReviewIssue]]:
         """Resolve page.extracted_events local refs to catalog IDs, global sort.
 
@@ -222,6 +320,8 @@ class ExperimentOrchestrator:
         """
         issues: list[ReviewIssue] = []
         stub_ids: set[str] = set()
+        if samples_catalog is None:
+            samples_catalog = []
 
         def _norm(s: str) -> str:
             nfkd = unicodedata.normalize("NFKD", s)
@@ -262,6 +362,38 @@ class ExperimentOrchestrator:
                 detail=f"Material reference '{ref}' unresolved in catalog; auto-created entry. 请人工核对。",
             ))
             return new_mat
+
+        def find_sample(ref: str) -> Sample | None:
+            if not ref:
+                return None
+            ref_norm = ref.strip()
+            ref_lower = ref_norm.lower()
+            for s in samples_catalog:
+                if s.canonical_label.strip().lower() == ref_lower:
+                    return s
+                if any(a.strip().lower() == ref_lower for a in s.aliases):
+                    return s
+            # normalized form (strip prefixes)
+            norm = self._norm_sample_label(ref_norm)
+            for s in samples_catalog:
+                if self._norm_sample_label(s.canonical_label) == norm:
+                    return s
+                if any(self._norm_sample_label(a) == norm for a in s.aliases):
+                    return s
+            return None
+
+        def find_or_create_sample(ref: str) -> Sample:
+            s = find_sample(ref)
+            if s is not None:
+                return s
+            new_s = Sample(canonical_label=ref.strip())
+            samples_catalog.append(new_s)
+            issues.append(ReviewIssue(
+                severity="warning",
+                title="Sample reference auto-created",
+                detail=f"Sample reference '{ref}' unresolved in catalog; auto-created entry. 请人工核对。",
+            ))
+            return new_s
 
         def find_instrument(ref: str | None) -> Instrument | None:
             if not ref:
@@ -343,6 +475,10 @@ class ExperimentOrchestrator:
                 if instr_id:
                     ins = find_instrument(instr_id)
                     instr_id = ins.instrument_id if ins else None
+                sample_id_resolved = evt.sample_ref
+                if sample_id_resolved:
+                    smp = find_or_create_sample(sample_id_resolved)
+                    sample_id_resolved = smp.sample_id
                 new_date_iso = evt.date_iso or label_to_iso(
                     evt.date_label, default_year=inferred_year
                 )
@@ -350,9 +486,14 @@ class ExperimentOrchestrator:
                     "inputs": new_inputs,
                     "outputs": new_outputs,
                     "instrument_ref": instr_id,
+                    "sample_ref": sample_id_resolved,
                     "date_iso": new_date_iso,
                 })
                 all_events.append((page_idx, new_evt))
+
+        # Fold stub samples (auto-created when no catalog match) into any
+        # real entry sharing the same normalized label.
+        self._reconcile_stub_samples(samples_catalog, all_events)
 
         # Global sort: date_iso priority; missing -> (page_idx, sequence_index)
         def sort_key(item):
@@ -372,6 +513,47 @@ class ExperimentOrchestrator:
             final, materials_catalog, stub_ids, _norm
         )
         return final, issues
+
+    @classmethod
+    def _reconcile_stub_samples(
+        cls,
+        samples_catalog: list[Sample],
+        all_events: list[tuple[int, ExperimentEvent]],
+    ) -> None:
+        """Collapse auto-created stub Samples into pre-existing entries
+        sharing the same normalized label. Rewrites event.sample_ref in place
+        on the (page_idx, event) tuples.
+        """
+        # Group by normalized label; pick the first entry as canonical.
+        by_norm: dict[str, list[Sample]] = {}
+        for s in samples_catalog:
+            key = cls._norm_sample_label(s.canonical_label)
+            by_norm.setdefault(key, []).append(s)
+
+        rewrite: dict[str, str] = {}
+        survivors: list[Sample] = []
+        for key, group in by_norm.items():
+            if not group:
+                continue
+            keeper = group[0]
+            survivors.append(keeper)
+            for dup in group[1:]:
+                rewrite[dup.sample_id] = keeper.sample_id
+                if dup.canonical_label and dup.canonical_label not in keeper.aliases \
+                        and dup.canonical_label != keeper.canonical_label:
+                    keeper.aliases.append(dup.canonical_label)
+                for a in dup.aliases:
+                    if a and a not in keeper.aliases:
+                        keeper.aliases.append(a)
+
+        if rewrite:
+            samples_catalog[:] = survivors
+            for i, (page_idx, evt) in enumerate(all_events):
+                if evt.sample_ref in rewrite:
+                    all_events[i] = (
+                        page_idx,
+                        evt.model_copy(update={"sample_ref": rewrite[evt.sample_ref]}),
+                    )
 
     @staticmethod
     def _reconcile_stub_materials(
