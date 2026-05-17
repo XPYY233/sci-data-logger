@@ -45,6 +45,13 @@ def _dump_record_for_db(record: ExperimentRecord) -> str:
     cuts row size dramatically when VLM responses are large; catalog/event
     data is preserved because it's already mirrored into top-level structured
     fields by the orchestrator.
+
+    Caveat: stripping is one-way w.r.t. merge_record. The orchestrator's
+    "Fallback A" for events reads ``page.raw_model_output["json"]["events"]``
+    when ``extracted_events`` is empty. In normal operation events are
+    promoted into ``extracted_events`` at draft time, but a record that was
+    stripped AND had events only in raw_model_output would lose them on a
+    subsequent merge. Default-off keeps this from biting.
     """
     # Avoid a hot import at module top — settings live in config.py which the
     # ORM model doesn't depend on.

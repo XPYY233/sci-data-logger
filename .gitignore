@@ -2,6 +2,11 @@ __pycache__/
 *.py[cod]
 .DS_Store
 .pytest_cache/
+# pytest-cov artifacts
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 .ruff_cache/
 .venv/
 venv/

@@ -97,10 +97,16 @@ QWEN_RETRY_MAX_DELAY=20.0
 QWEN_RETRY_MAX_TOTAL_SECONDS=60.0
 
 # 并发与预处理
-SCI_DATA_LOGGER_VLM_CONCURRENCY=4
+SCI_DATA_LOGGER_VLM_CONCURRENCY=4              # 每请求 orchestrator 并发
+SCI_DATA_LOGGER_VLM_GLOBAL_CONCURRENCY=8       # 进程级 VLM 总并发硬上限（防 DashScope 配额炸）
+SCI_DATA_LOGGER_VLM_GLOBAL_ACQUIRE_TIMEOUT=120 # 总并发饱和后 acquire 超时（秒）
 SCI_DATA_LOGGER_IMAGE_AUTOCONTRAST=true
 SCI_DATA_LOGGER_IMAGE_DESKEW=true
 SCI_DATA_LOGGER_PDF_RENDER_DPI=200
+
+# DB 行尺寸控制：开启后从 record_json 剥离 raw_model_output（verbatim VLM 文本），
+# 保留 catalogs/events 等结构化字段。row 减小 5-10x，代价是丢 raw VLM 调试信息。
+SCI_DATA_LOGGER_DB_STRIP_RAW_MODEL_OUTPUT=false
 
 # 存储 / 配置文件路径
 SCI_DATA_LOGGER_STORAGE_ROOT=.local_data
