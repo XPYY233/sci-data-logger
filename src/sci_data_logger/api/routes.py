@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
-import shutil
 from pathlib import Path
 from typing import Annotated, Any
 from uuid import uuid4
@@ -98,13 +98,20 @@ def create_experiment_draft_from_uploads(
     session: Session = Depends(get_session),
 ) -> ExperimentRecord:
     settings = get_settings()
-    image_paths = _save_uploads(images, settings, experiment_id, "images")
-    instrument_file_paths = _save_uploads(
+    image_pairs = _save_uploads(images, settings, experiment_id, "images")
+    instrument_pairs = _save_uploads(
         instrument_files,
         settings,
         experiment_id,
         "instrument_files",
     )
+    image_paths = [p for p, _ in image_pairs]
+    instrument_file_paths = [p for p, _ in instrument_pairs]
+    path_to_hash: dict[str, str] = {}
+    for p, h in image_pairs:
+        path_to_hash[str(p)] = h
+    for p, h in instrument_pairs:
+        path_to_hash[str(p)] = h
     draft_request = DraftExperimentRequest(
         experiment_id=experiment_id,
         image_paths=image_paths,
@@ -117,6 +124,7 @@ def create_experiment_draft_from_uploads(
     )
     orchestrator = ExperimentOrchestrator()
     record = orchestrator.create_draft(draft_request)
+    _attach_checksums(record, path_to_hash)
     _, rejected_locked = repository.merge_record(session, record, orchestrator)
     if rejected_locked:
         response.headers["Locked-Append-Rejected"] = "true"
@@ -148,10 +156,17 @@ def append_pages_to_draft(
         )
 
     settings = get_settings()
-    image_paths = _save_uploads(images, settings, experiment_id, "images")
-    instrument_file_paths = _save_uploads(
+    image_pairs = _save_uploads(images, settings, experiment_id, "images")
+    instrument_pairs = _save_uploads(
         instrument_files, settings, experiment_id, "instrument_files"
     )
+    image_paths = [p for p, _ in image_pairs]
+    instrument_file_paths = [p for p, _ in instrument_pairs]
+    path_to_hash: dict[str, str] = {}
+    for p, h in image_pairs:
+        path_to_hash[str(p)] = h
+    for p, h in instrument_pairs:
+        path_to_hash[str(p)] = h
     draft_request = DraftExperimentRequest(
         experiment_id=experiment_id,
         image_paths=image_paths,
@@ -163,6 +178,7 @@ def append_pages_to_draft(
     )
     orchestrator = ExperimentOrchestrator()
     delta = orchestrator.create_draft(draft_request)
+    _attach_checksums(delta, path_to_hash)
     _, rejected_locked = repository.merge_record(session, delta, orchestrator)
     if rejected_locked:
         response.headers["Locked-Append-Rejected"] = "true"
@@ -295,7 +311,7 @@ def _save_uploads(
     settings: Settings,
     experiment_id: str,
     kind: str,
-) -> list[Path]:
+) -> list[tuple[Path, str]]:
     try:
         allowed = _UPLOAD_ALLOWLISTS[kind]
     except KeyError as exc:
@@ -305,7 +321,7 @@ def _save_uploads(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"unknown upload kind '{kind}'",
         ) from exc
-    saved: list[Path] = []
+    saved: list[tuple[Path, str]] = []
     for upload in uploads or []:
         _reject_disallowed_suffix(upload, allowed, kind)
         saved.append(_save_upload(upload, settings, experiment_id, kind))
@@ -317,7 +333,7 @@ def _save_upload(
     settings: Settings,
     experiment_id: str,
     kind: str,
-) -> Path:
+) -> tuple[Path, str]:
     storage_root = settings.ensure_storage().resolve()
     destination_dir = storage_root / "api_uploads" / _safe_path_part(experiment_id) / kind
     destination_dir.mkdir(parents=True, exist_ok=True)
@@ -328,9 +344,34 @@ def _save_upload(
             detail="Invalid upload destination.",
         )
     upload.file.seek(0)
+    hasher = hashlib.sha256()
     with destination.open("wb") as output:
-        shutil.copyfileobj(upload.file, output)
-    return destination
+        while True:
+            chunk = upload.file.read(1024 * 1024)
+            if not chunk:
+                break
+            hasher.update(chunk)
+            output.write(chunk)
+    return destination, hasher.hexdigest()
+
+
+def _attach_checksums(record: ExperimentRecord, path_to_hash: dict[str, str]) -> None:
+    """Post-fill SHA-256 checksums onto pages and source assets by source_path match.
+
+    The orchestrator does not know about content hashing; the API layer computes
+    hashes while streaming uploads to disk and attaches them here so downstream
+    merge_record can dedup pages by content rather than by UUID-prefixed path.
+    """
+    if not path_to_hash:
+        return
+    for page in record.pages:
+        digest = path_to_hash.get(page.source_path)
+        if digest:
+            page.content_checksum = digest
+    for asset in record.source_assets:
+        digest = path_to_hash.get(asset.source_path)
+        if digest:
+            asset.checksum = digest
 
 
 def _parse_user_fields(value: str | None) -> dict[str, Any]:

@@ -189,6 +189,7 @@ class MeasurementPacket(BaseModel):
 class PagePacket(BaseModel):
     page_id: str = Field(default_factory=lambda: new_id("page"))
     source_path: str
+    content_checksum: str | None = None  # SHA-256 hex digest of the source file bytes
     page_types: list[str] = Field(default_factory=lambda: ["unknown"])
     page_number_hint: int | None = None
     captured_at: str | None = None  # ISO 8601, from EXIF DateTimeOriginal if available

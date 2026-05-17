@@ -176,12 +176,15 @@ def merge_record(
       downgrades; otherwise the newer status wins
 
     Page dedup (E2): after concatenating ``combined_pages`` we drop later
-    duplicates by ``source_path`` string and emit a single info-severity
-    ``ReviewIssue`` describing how many were dropped. Note: upload endpoints
-    rewrite each upload to a unique ``<uuid>_filename`` path, so re-uploading
-    the same original filename produces a distinct source_path and is NOT
-    caught here; this guard exists to defend against duplicate concatenation
-    *within* one record (e.g. a buggy double-merge of the same packet).
+    duplicates by **content checksum** first (SHA-256 of the source file bytes,
+    attached by the API layer on upload) and then by ``source_path`` string.
+    The checksum pass catches the "same file uploaded twice with different
+    filenames" case — upload endpoints prepend a UUID to each filename, so two
+    uploads of identical bytes still produce distinct source_paths, but their
+    ``content_checksum`` fields match. The source_path fallback continues to
+    defend against duplicate concatenation *within* one record (e.g. a buggy
+    double-merge of the same packet). A single info-severity ``ReviewIssue``
+    summarises how many pages were dropped.
     """
     existing_row = session.get(ExperimentRecordORM, new_record.experiment_id)
     if existing_row is None:
@@ -221,14 +224,21 @@ def merge_record(
     combined_measurements = [*existing.measurements, *new_record.measurements]
     combined_source_assets = [*existing.source_assets, *new_record.source_assets]
 
-    # E2: dedup pages by source_path. Keep first occurrence; drop later ones.
+    # E2: dedup pages by content checksum first, then by source_path. Keep
+    # first occurrence; drop later ones.
+    seen_checksums: set[str] = set()
     seen_paths: set[str] = set()
     deduped_pages: list[PagePacket] = []
     dropped_count = 0
     for page in combined_pages:
+        if page.content_checksum and page.content_checksum in seen_checksums:
+            dropped_count += 1
+            continue
         if page.source_path in seen_paths:
             dropped_count += 1
             continue
+        if page.content_checksum:
+            seen_checksums.add(page.content_checksum)
         seen_paths.add(page.source_path)
         deduped_pages.append(page)
     dedup_issue: ReviewIssue | None = None
@@ -237,7 +247,8 @@ def merge_record(
             severity="info",
             title="Duplicate page(s) ignored",
             detail=(
-                f"Skipped {dropped_count} page(s) with source_paths already in record."
+                f"Skipped {dropped_count} page(s) already present in record "
+                f"(matched by content checksum or source_path)."
             ),
         )
     combined_pages = deduped_pages

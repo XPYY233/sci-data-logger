@@ -210,12 +210,17 @@ def _stub_doc_processor_with_materials(monkeypatch, materials_by_filename: dict[
     monkeypatch.setattr(orch_module.DocumentProcessor, "analyze_pages", fake_analyze_pages)
 
 
-def _png_bytes() -> bytes:
-    return (
+def _png_bytes(seed: bytes = b"") -> bytes:
+    """Return a small PNG-like byte sequence. The optional ``seed`` is appended
+    as a trailing comment-like blob so tests that need *distinct* file contents
+    (rather than the now-active content-checksum dedup catching them) can pass
+    a unique seed per upload."""
+    base = (
         b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08"
         b"\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc```\x00\x00\x00"
         b"\x04\x00\x01\xa1G\xe9_\x00\x00\x00\x00IEND\xaeB`\x82"
     )
+    return base + seed
 
 
 def test_repeat_upload_merges_pages_not_overwrites(monkeypatch, app_with_temp_db):
@@ -227,7 +232,7 @@ def test_repeat_upload_merges_pages_not_overwrites(monkeypatch, app_with_temp_db
     r1 = client.post(
         "/experiments/draft/upload",
         data={"experiment_id": "EXP-INC"},
-        files=[("images", ("first.png", _png_bytes(), "image/png"))],
+        files=[("images", ("first.png", _png_bytes(b"first"), "image/png"))],
     )
     assert r1.status_code == 200, r1.text
     assert len(r1.json()["pages"]) == 1
@@ -235,7 +240,7 @@ def test_repeat_upload_merges_pages_not_overwrites(monkeypatch, app_with_temp_db
     r2 = client.post(
         "/experiments/draft/upload",
         data={"experiment_id": "EXP-INC"},
-        files=[("images", ("second.png", _png_bytes(), "image/png"))],
+        files=[("images", ("second.png", _png_bytes(b"second"), "image/png"))],
     )
     assert r2.status_code == 200, r2.text
     rec2 = r2.json()
@@ -262,13 +267,13 @@ def test_append_pages_endpoint_merges_into_existing_record(monkeypatch, app_with
     create = client.post(
         "/experiments/draft/upload",
         data={"experiment_id": "EXP-APP"},
-        files=[("images", ("orig.png", _png_bytes(), "image/png"))],
+        files=[("images", ("orig.png", _png_bytes(b"orig"), "image/png"))],
     )
     assert create.status_code == 200, create.text
 
     append = client.post(
         "/experiments/EXP-APP/pages",
-        files=[("images", ("extra.png", _png_bytes(), "image/png"))],
+        files=[("images", ("extra.png", _png_bytes(b"extra"), "image/png"))],
     )
     assert append.status_code == 200, append.text
     rec = append.json()
@@ -526,6 +531,82 @@ def test_merge_dedups_identical_source_paths(app_with_temp_db):
         f"expected an info-severity 'Duplicate page(s) ignored' review_issue; "
         f"got {[(ri.severity, ri.title) for ri in merged.review_issues]}"
     )
+
+
+def test_repeat_upload_same_content_different_filename_is_deduped(
+    monkeypatch, app_with_temp_db
+):
+    """The same bytes uploaded twice with different filenames produce different
+    UUID-prefixed source_paths, so source_path dedup misses the duplicate. The
+    content_checksum dedup pass must catch it instead and emit an info-severity
+    ``Duplicate page(s) ignored`` review issue.
+    """
+    _stub_doc_processor_with_materials(
+        monkeypatch, {"a.png": "Material-A", "b.png": "Material-A"}
+    )
+    client = TestClient(app_with_temp_db)
+    shared_bytes = _png_bytes()
+
+    r1 = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-CHK-DEDUP"},
+        files=[("images", ("a.png", shared_bytes, "image/png"))],
+    )
+    assert r1.status_code == 200, r1.text
+    assert len(r1.json()["pages"]) == 1
+
+    r2 = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-CHK-DEDUP"},
+        files=[("images", ("b.png", shared_bytes, "image/png"))],
+    )
+    assert r2.status_code == 200, r2.text
+    body = r2.json()
+    assert len(body["pages"]) == 1, (
+        "expected content-checksum dedup to keep a single page; "
+        f"got {len(body['pages'])} pages"
+    )
+    dedup_issues = [
+        ri for ri in body["review_issues"]
+        if ri.get("title") == "Duplicate page(s) ignored"
+        and ri.get("severity") == "info"
+    ]
+    assert dedup_issues, (
+        f"expected an info-severity dedup issue; got titles="
+        f"{[ri.get('title') for ri in body['review_issues']]}"
+    )
+
+
+def test_content_checksum_attached_to_pages_and_assets(monkeypatch, app_with_temp_db):
+    """Verify the API layer attaches SHA-256 checksums to the resulting
+    record's pages[*].content_checksum and source_assets[*].checksum, and
+    that for an image upload both refer to the same digest."""
+    _stub_doc_processor_with_materials(monkeypatch, {"one.png": "Material-X"})
+    client = TestClient(app_with_temp_db)
+
+    r = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-CHK-ATTACH"},
+        files=[("images", ("one.png", _png_bytes(), "image/png"))],
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["pages"], "expected at least one page"
+    assert body["source_assets"], "expected at least one source asset"
+
+    page_digest = body["pages"][0].get("content_checksum")
+    assert page_digest, "pages[0].content_checksum must be non-empty"
+    assert len(page_digest) == 64, (
+        f"expected 64-char SHA-256 hex digest; got {page_digest!r}"
+    )
+
+    # The corresponding source_asset's checksum should match (same file).
+    matching_assets = [
+        a for a in body["source_assets"]
+        if a.get("source_path") == body["pages"][0]["source_path"]
+    ]
+    assert matching_assets, "no source_asset matches the page's source_path"
+    assert matching_assets[0].get("checksum") == page_digest
 
 
 def test_json_draft_endpoint_sets_locked_header_on_locked_record(app_with_temp_db):
