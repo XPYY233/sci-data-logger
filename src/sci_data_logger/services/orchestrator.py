@@ -30,7 +30,8 @@ class ExperimentOrchestrator:
         self.instrument_service = instrument_service or InstrumentService()
 
     def create_draft(self, request: DraftExperimentRequest) -> ExperimentRecord:
-        pages = [self.document_processor.analyze_page(path) for path in request.image_paths]
+        page_lists = self._analyze_pages_concurrently(request.image_paths, max_workers=1)
+        pages: list[PagePacket] = [p for lst in page_lists for p in lst]
         measurements = [
             self.instrument_service.parse_file(path) for path in request.instrument_file_paths
         ]
@@ -65,6 +66,58 @@ class ExperimentOrchestrator:
         if record.review_issues:
             record.status = ReviewStatus.NEEDS_REVIEW
         return record
+
+    def _analyze_pages_concurrently(
+        self, image_paths, max_workers: int = 1
+    ) -> list[list[PagePacket]]:
+        """Run page analysis across the supplied source paths.
+
+        When falling back to sequential execution (max_workers <= 1 or single
+        file), thread the previous page's text_blocks tail forward as a context
+        hint for cross-page continuation. Context hints are only applied when
+        running sequentially; with concurrency we can't define a "previous
+        page" deterministically.
+        """
+        from sci_data_logger.config import get_settings
+        from sci_data_logger.services.document import _tail_of_text_blocks
+
+        def _analyze(path, prev_tail: str | None):
+            # Prefer the new multi-page entrypoint when the processor exposes
+            # one; otherwise fall back to single-page analyze_page (which may
+            # or may not accept prev_tail).
+            fn = getattr(self.document_processor, "analyze_pages", None)
+            if fn is not None:
+                try:
+                    return fn(path, prev_tail=prev_tail)
+                except TypeError:
+                    return fn(path)
+            try:
+                page = self.document_processor.analyze_page(path, prev_tail=prev_tail)
+            except TypeError:
+                page = self.document_processor.analyze_page(path)
+            return [page]
+
+        image_paths = list(image_paths)
+        if max_workers <= 1 or len(image_paths) <= 1:
+            results: list[list[PagePacket]] = []
+            prev_tail: str | None = None
+            for p in image_paths:
+                if get_settings().context_hint_enabled:
+                    page_list = _analyze(p, prev_tail)
+                else:
+                    page_list = _analyze(p, None)
+                results.append(page_list)
+                if get_settings().context_hint_enabled and page_list:
+                    last_pkt = page_list[-1]
+                    prev_tail = _tail_of_text_blocks(
+                        last_pkt.text_blocks,
+                        get_settings().context_hint_tail_chars,
+                    )
+            return results
+        # Concurrent path: no defined predecessor, so don't thread context.
+        # Context hints are only applied when running sequentially; with
+        # concurrency we can't define a "previous page" deterministically.
+        return [_analyze(p, None) for p in image_paths]
 
     @staticmethod
     def _merge_materials_catalog(pages: list[PagePacket]) -> list[Material]:

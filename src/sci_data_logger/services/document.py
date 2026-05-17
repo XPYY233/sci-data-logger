@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from sci_data_logger.prompts import PAGE_ANALYSIS_PROMPT
+from sci_data_logger.config import get_settings
+from sci_data_logger.prompts import PAGE_ANALYSIS_PROMPT, with_context_hint
 from sci_data_logger.schemas import (
     EvidenceRef,
     FieldValue,
@@ -21,6 +22,21 @@ IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 TEXT_SUFFIXES = {".txt", ".md"}
 
 
+def _tail_of_text_blocks(text_blocks: list[str], n: int) -> str:
+    """Concatenate text_blocks with newlines and return the last n characters.
+
+    Returns empty string when there is no text.
+    """
+    if not text_blocks:
+        return ""
+    joined = "\n".join(str(b) for b in text_blocks if b)
+    if not joined:
+        return ""
+    if n <= 0:
+        return ""
+    return joined[-n:]
+
+
 class DocumentProcessor:
     """Convert notebook pages into page-level packets."""
 
@@ -32,10 +48,12 @@ class DocumentProcessor:
         self.vlm_client = vlm_client or QwenVLMClient()
         self.term_aliaser = term_aliaser or TermAliaser()
 
-    def analyze_page(self, source_path: Path) -> PagePacket:
+    def analyze_page(
+        self, source_path: Path, prev_tail: str | None = None
+    ) -> PagePacket:
         suffix = source_path.suffix.lower()
         if suffix in IMAGE_SUFFIXES:
-            return self._analyze_image(source_path)
+            return self._analyze_image(source_path, prev_tail=prev_tail)
         if suffix in TEXT_SUFFIXES:
             return self._analyze_text(source_path)
         return PagePacket(
@@ -43,8 +61,25 @@ class DocumentProcessor:
             open_questions=[f"暂不支持该页面文件类型：{suffix or 'unknown'}"],
         )
 
-    def _analyze_image(self, image_path: Path) -> PagePacket:
-        model_result = self.vlm_client.analyze_image(image_path, PAGE_ANALYSIS_PROMPT)
+    def analyze_pages(
+        self, source_path: Path, prev_tail: str | None = None
+    ) -> list[PagePacket]:
+        """Analyze a source file as a list of pages.
+
+        For single-page sources (images, text), returns a single-element list.
+        Sub-pages (e.g. PDF rendered pages) would thread prev_tail page-to-page
+        within the source; not currently used because PDF rendering isn't
+        implemented in this branch.
+        """
+        return [self.analyze_page(source_path, prev_tail=prev_tail)]
+
+    def _analyze_image(
+        self, image_path: Path, prev_tail: str | None = None
+    ) -> PagePacket:
+        effective_prompt = PAGE_ANALYSIS_PROMPT
+        if get_settings().context_hint_enabled and prev_tail:
+            effective_prompt = with_context_hint(PAGE_ANALYSIS_PROMPT, prev_tail)
+        model_result = self.vlm_client.analyze_image(image_path, effective_prompt)
         payload = model_result.get("json")
         if not isinstance(payload, dict):
             payload = {

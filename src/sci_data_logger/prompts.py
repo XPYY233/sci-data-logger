@@ -119,3 +119,17 @@ PAGE_ANALYSIS_PROMPT = """你是材料科研实验记录解析助手，专门处
 
 # 只输出 JSON
 """
+
+
+CONTEXT_HINT_PREFIX = """# 上一页末尾片段（仅供解决跨页接续，不可作为本页结构化数据的来源）
+
+{prev_tail}
+
+# 本页内容如下："""
+
+
+def with_context_hint(prompt: str, prev_tail: str | None) -> str:
+    """Prepend the context hint to the page-analysis prompt iff prev_tail is non-empty."""
+    if not prev_tail:
+        return prompt
+    return CONTEXT_HINT_PREFIX.format(prev_tail=prev_tail.strip()) + "\n" + prompt

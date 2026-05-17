@@ -48,6 +48,15 @@ class Settings(BaseSettings):
         alias="SCI_DATA_LOGGER_GROUP_TEMPLATE",
     )
 
+    context_hint_enabled: bool = Field(
+        default=False,
+        alias="SCI_DATA_LOGGER_CONTEXT_HINT_ENABLED",
+    )
+    context_hint_tail_chars: int = Field(
+        default=400,
+        alias="SCI_DATA_LOGGER_CONTEXT_HINT_TAIL_CHARS",
+    )
+
     def ensure_storage(self) -> Path:
         self.storage_root.mkdir(parents=True, exist_ok=True)
         return self.storage_root
