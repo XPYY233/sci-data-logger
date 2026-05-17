@@ -1,3 +1,13 @@
+"""Tests for causal-chain linking between experiment events.
+
+These tests exercise ``ExperimentOrchestrator._link_event_chains``: given a
+list of events whose inputs/outputs reference shared materials, the linker
+must populate ``derived_from`` and ``produces_for`` so that each event
+records its strictly-earlier producers and later consumers. The acyclicity
+guarantee (producer ``sequence_index`` < consumer ``sequence_index``) is
+also covered here.
+"""
+
 from sci_data_logger.schemas import (
     DraftExperimentRequest,
     EventIO,
