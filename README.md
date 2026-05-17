@@ -50,7 +50,7 @@
 | **混合存储** | 单表 `experiments`：scalar 列（experiment_id / project / group / status / timestamps）+ `record_json` blob（完整 pydantic `ExperimentRecord`）。SQLite JSON1 足以应付当前查询 |
 | **Schema 演化友好** | pydantic v2 model 是单一权威，DB 不预先 normalize，避免 Phase 0/1 阶段反复改表 |
 | **CRUD + 审核 API** | `GET/PATCH/DELETE /experiments/{id}`、`GET /experiments?status=...`、`POST /experiments/{id}/review-issues/{issue_id}/resolve` |
-| **审核状态机** | `ReviewStatus`：`draft → needs_review → reviewed → locked`。`PATCH /status` 强制合法过渡，非法返回 409；`LOCKED` 为终态，`merge_record` 在 LOCKED 时静默拒收新页 |
+| **审核状态机** | `ReviewStatus`：`draft → needs_review → reviewed → locked`。`PATCH /status` 强制合法过渡，非法返回 409。`LOCKED` 为终态，`merge_record` 在 LOCKED 时拒收新页：在 record 上加一条 `ReviewIssue` 留审计痕，HTTP 响应附 `Locked-Append-Rejected: true` header（200 不变以保持现有客户端兼容） |
 | **Material 跨页合并** | dedup key 仅用 `canonical_name`（不再带 role），同一物质多 role 累计到 `roles: list[str]`；event 解析中 auto-create 的 stub 会被 reconcile pass 合并回真实条目 |
 
 ---
