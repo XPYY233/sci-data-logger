@@ -395,3 +395,134 @@ def test_status_transition_valid_path_works(app_with_temp_db):
         resp = client.patch("/experiments/EXP-TR-3/status", json={"status": s})
         assert resp.status_code == 200, f"{s}: {resp.text}"
         assert resp.json()["status"] == s
+
+
+# ----- Fix E1: LOCKED merge audit trail + response header -----------------
+
+
+def _walk_to_locked(client: TestClient, experiment_id: str) -> None:
+    for s in ("needs_review", "reviewed", "locked"):
+        resp = client.patch(
+            f"/experiments/{experiment_id}/status", json={"status": s}
+        )
+        assert resp.status_code == 200, f"transition {s}: {resp.text}"
+
+
+def test_merge_locked_emits_review_issue_audit_trail(monkeypatch, app_with_temp_db):
+    _stub_doc_processor_with_materials(
+        monkeypatch, {"a.png": "Mat-1", "b.png": "Mat-2"}
+    )
+    client = TestClient(app_with_temp_db)
+    r = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-LOCK-AUDIT"},
+        files=[("images", ("a.png", _png_bytes(), "image/png"))],
+    )
+    assert r.status_code == 200, r.text
+    issues_before = r.json()["review_issues"]
+    _walk_to_locked(client, "EXP-LOCK-AUDIT")
+
+    merge = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-LOCK-AUDIT"},
+        files=[("images", ("b.png", _png_bytes(), "image/png"))],
+    )
+    assert merge.status_code == 200, merge.text
+    body = merge.json()
+    assert body["status"] == ReviewStatus.LOCKED.value
+    # Audit trail: a new ReviewIssue titled "Upload rejected: ..." appears.
+    new_titles = [
+        ri["title"]
+        for ri in body["review_issues"]
+        if ri.get("title", "").startswith("Upload rejected")
+    ]
+    assert new_titles, (
+        "expected an 'Upload rejected' ReviewIssue on the LOCKED record; "
+        f"got titles={[ri.get('title') for ri in body['review_issues']]}"
+    )
+    # We should have *more* review_issues than before the locked-append.
+    assert len(body["review_issues"]) > len(issues_before)
+
+
+def test_merge_locked_sets_response_header(monkeypatch, app_with_temp_db):
+    _stub_doc_processor_with_materials(
+        monkeypatch, {"a.png": "Mat-1", "b.png": "Mat-2"}
+    )
+    client = TestClient(app_with_temp_db)
+    r = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-LOCK-HDR"},
+        files=[("images", ("a.png", _png_bytes(), "image/png"))],
+    )
+    assert r.status_code == 200, r.text
+    # A successful (non-locked) merge must NOT set the header.
+    assert r.headers.get("Locked-Append-Rejected") is None
+    _walk_to_locked(client, "EXP-LOCK-HDR")
+
+    merge = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-LOCK-HDR"},
+        files=[("images", ("b.png", _png_bytes(), "image/png"))],
+    )
+    assert merge.status_code == 200, merge.text
+    assert merge.headers.get("Locked-Append-Rejected") == "true"
+
+    # Same behaviour for the append-pages endpoint.
+    append = client.post(
+        "/experiments/EXP-LOCK-HDR/pages",
+        files=[("images", ("c.png", _png_bytes(), "image/png"))],
+    )
+    assert append.status_code == 200, append.text
+    assert append.headers.get("Locked-Append-Rejected") == "true"
+
+
+# ----- Fix E2: dedup pages by source_path on merge -----------------------
+
+
+def test_merge_dedups_identical_source_paths(app_with_temp_db):
+    """Manually construct a record whose merge would concatenate two pages
+    sharing the same source_path; verify dedup keeps one and adds an info
+    ReviewIssue."""
+    from sci_data_logger.db import repository
+    from sci_data_logger.db.session import get_engine_cached, get_session_factory
+    from sci_data_logger.schemas import PagePacket
+    from sci_data_logger.services.orchestrator import ExperimentOrchestrator
+
+    shared_path = "/tmp/some/page1.png"
+    base = ExperimentRecord(
+        experiment_id="EXP-DEDUP",
+        pages=[PagePacket(source_path=shared_path, page_types=["protocol"])],
+    )
+    delta = ExperimentRecord(
+        experiment_id="EXP-DEDUP",
+        pages=[
+            PagePacket(source_path=shared_path, page_types=["protocol"]),
+            PagePacket(source_path="/tmp/some/page2.png", page_types=["protocol"]),
+        ],
+    )
+
+    orchestrator = ExperimentOrchestrator()
+    factory = get_session_factory(get_engine_cached())
+    with factory() as session:
+        repository.save_record(session, base)
+        session.commit()
+        repository.merge_record(session, delta, orchestrator)
+        session.commit()
+
+    with factory() as session:
+        merged = repository.get_record(session, "EXP-DEDUP")
+    assert merged is not None
+    source_paths = [p.source_path for p in merged.pages]
+    # The shared path appears exactly once, plus the unique page2.
+    assert source_paths.count(shared_path) == 1, source_paths
+    assert "/tmp/some/page2.png" in source_paths
+    assert len(merged.pages) == 2
+
+    dedup_titles = [
+        ri for ri in merged.review_issues
+        if ri.title == "Duplicate page(s) ignored" and ri.severity == "info"
+    ]
+    assert dedup_titles, (
+        f"expected an info-severity 'Duplicate page(s) ignored' review_issue; "
+        f"got {[(ri.severity, ri.title) for ri in merged.review_issues]}"
+    )

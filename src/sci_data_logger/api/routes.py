@@ -7,7 +7,17 @@ from pathlib import Path
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session
 
@@ -73,6 +83,7 @@ def create_experiment_draft(
 
 @router.post("/experiments/draft/upload", response_model=ExperimentRecord)
 def create_experiment_draft_from_uploads(
+    response: Response,
     experiment_id: Annotated[str, Form()],
     images: Annotated[list[UploadFile] | None, File()] = None,
     instrument_files: Annotated[list[UploadFile] | None, File()] = None,
@@ -103,7 +114,9 @@ def create_experiment_draft_from_uploads(
     )
     orchestrator = ExperimentOrchestrator()
     record = orchestrator.create_draft(draft_request)
-    repository.merge_record(session, record, orchestrator)
+    _, rejected_locked = repository.merge_record(session, record, orchestrator)
+    if rejected_locked:
+        response.headers["Locked-Append-Rejected"] = "true"
     session.flush()
     return repository.get_record(session, record.experiment_id) or record
 
@@ -111,6 +124,7 @@ def create_experiment_draft_from_uploads(
 @router.post("/experiments/{experiment_id}/pages", response_model=ExperimentRecord)
 def append_pages_to_draft(
     experiment_id: str,
+    response: Response,
     images: Annotated[list[UploadFile] | None, File()] = None,
     instrument_files: Annotated[list[UploadFile] | None, File()] = None,
     session: Session = Depends(get_session),
@@ -146,7 +160,9 @@ def append_pages_to_draft(
     )
     orchestrator = ExperimentOrchestrator()
     delta = orchestrator.create_draft(draft_request)
-    repository.merge_record(session, delta, orchestrator)
+    _, rejected_locked = repository.merge_record(session, delta, orchestrator)
+    if rejected_locked:
+        response.headers["Locked-Append-Rejected"] = "true"
     return repository.get_record(session, experiment_id)
 
 
