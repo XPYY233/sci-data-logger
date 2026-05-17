@@ -578,6 +578,47 @@ def test_merge_instruments_catalog_falls_back_to_extracted_instruments_when_cata
     assert labels == ["707炉", "806炉"]
 
 
+def test_orchestrator_parses_events_from_raw_model_output_when_extracted_events_empty(tmp_path):
+    """Orchestrator parses events directly from raw_model_output.json.events
+    when PagePacket.extracted_events is empty — proves the document layer is
+    no longer the only entry point for event ingestion."""
+    page1 = PagePacket(source_path="p1.jpg")
+    page1.raw_model_output = {"json": {
+        "materials_catalog": [
+            {"canonical_name": "LiCl", "role": "precursor"},
+        ],
+        "events": [
+            {
+                "sequence_index": 1,
+                "action_type": "mill",
+                "description": "球磨直接来自 raw_model_output",
+                "inputs": [{"material_ref_local": "LiCl"}],
+                "outputs": [],
+                "parameters": {},
+                "confidence": 0.85,
+            },
+        ],
+    }}
+    # NOTE: extracted_events is intentionally left at its default ([]).
+    assert page1.extracted_events == []
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page1]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-RAW-EVENTS-FALLBACK", image_paths=[img1],
+    ))
+
+    assert len(record.events) == 1
+    evt = record.events[0]
+    assert evt.action_type == "mill"
+    assert evt.description == "球磨直接来自 raw_model_output"
+    licl = next(m for m in record.materials_catalog if m.canonical_name == "LiCl")
+    assert evt.inputs[0].material_ref == licl.material_id
+
+
 def test_orchestrator_falls_back_to_page_sample_id_when_catalog_missing(tmp_path):
     page1 = PagePacket(source_path="p1.jpg", sample_id="S3")
     # No samples_catalog in raw_model_output payload.

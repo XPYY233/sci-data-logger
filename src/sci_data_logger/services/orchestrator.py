@@ -531,7 +531,28 @@ class ExperimentOrchestrator:
                             return ins
             return None
 
-        # Fallback: pages without extracted_events but with extracted_steps (legacy) -> upgrade.
+        # Fallback A: pages with empty extracted_events but raw_model_output.json.events.
+        # The production DocumentProcessor path parses events into both
+        # extracted_events and raw_model_output; integration tests or alternate
+        # processors may only populate the latter. Parse them here so the
+        # orchestrator no longer requires the document layer to have done it.
+        from sci_data_logger.services.document import parse_events_from_payload
+        from sci_data_logger.services.term_aliaser import TermAliaser as _TermAliaser
+        _fallback_aliaser = _TermAliaser()
+        for page in pages:
+            if page.extracted_events:
+                continue
+            raw_events = (page.raw_model_output or {}).get("json", {}).get("events") or []
+            if not raw_events:
+                continue
+            page.extracted_events = parse_events_from_payload(
+                raw_events,
+                source_path=page.source_path,
+                page_id=page.page_id,
+                term_aliaser=_fallback_aliaser,
+            )
+
+        # Fallback B: pages without extracted_events but with extracted_steps (legacy) -> upgrade.
         # IMPORTANT: copy step.inputs / step.outputs into EventIO / EventOutput so
         # _link_event_chains can later trace material flow. Also pull page-level
         # signals (recipe_ratios, equations, sample_id) onto the first event of

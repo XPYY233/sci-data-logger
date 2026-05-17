@@ -135,22 +135,12 @@ def test_prompt_shaped_payload_populates_catalogs_and_chain(tmp_path):
     img = tmp_path / "p.jpg"
     img.write_bytes(b"x")
 
-    # NOTE: orchestrator currently consumes events from PagePacket.extracted_events.
-    # The DocumentProcessor (which we're bypassing) parses raw_model_output.json.events
-    # into that field. To exercise the prompt → orchestrator round-trip we must
-    # also populate extracted_events directly from the raw payload here.
-    from sci_data_logger.services.document import DocumentProcessor
-    parsed_events = DocumentProcessor(vlm_client=object())._events_from_payload(
-        PROMPT_SHAPED_PAYLOAD["events"], img, "fake-page-id"
-    )
-
-    class _Proc(_PromptShapedProcessor):
-        def analyze_page(self, path: Path) -> PagePacket:
-            pkt = super().analyze_page(path)
-            pkt.extracted_events = parsed_events
-            return pkt
-
-    orch = ExperimentOrchestrator(document_processor=_Proc())
+    # The orchestrator now parses events directly from
+    # raw_model_output.json.events when PagePacket.extracted_events is empty,
+    # so the fixture below leaves extracted_events at its default ([]) and lets
+    # the orchestrator do the parsing — proving the document-layer coupling is
+    # gone.
+    orch = ExperimentOrchestrator(document_processor=_PromptShapedProcessor())
     record = orch.create_draft(
         DraftExperimentRequest(experiment_id="EXP-PROMPT-E2E", image_paths=[img]),
     )
@@ -221,17 +211,14 @@ def test_prompt_shaped_payload_chain_forms_when_outputs_link_inputs(tmp_path):
     img = tmp_path / "p.jpg"
     img.write_bytes(b"x")
 
-    from sci_data_logger.services.document import DocumentProcessor
-    parsed_events = DocumentProcessor(vlm_client=object())._events_from_payload(
-        payload["events"], img, "fake"
-    )
-
+    # Same as the test above: orchestrator parses events out of
+    # raw_model_output.json.events as a fallback, so the fixture leaves
+    # extracted_events empty.
     class _Proc:
         def analyze_page(self, path):
             return PagePacket(
                 source_path=str(path),
                 raw_model_output={"json": payload},
-                extracted_events=parsed_events,
             )
 
         def analyze_pages(self, path):

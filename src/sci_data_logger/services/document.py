@@ -68,6 +68,116 @@ def _tail_of_text_blocks(text_blocks: list[str], n: int) -> str:
     return joined[-n:]
 
 
+def parse_events_from_payload(
+    items: Any,
+    source_path: Path | str,
+    page_id: str,
+    term_aliaser: TermAliaser | None = None,
+) -> list[ExperimentEvent]:
+    """Parse VLM event list payload into ExperimentEvent objects.
+
+    material_ref_local / instrument_ref_local 保留为字符串，
+    留给 Orchestrator 解析到真正的 material_id / instrument_id。
+
+    Exposed at module level so callers that don't have a DocumentProcessor
+    instance (e.g. ExperimentOrchestrator's raw_model_output fallback) can
+    parse events without instantiating the full processor.
+    """
+    if not isinstance(items, list):
+        return []
+    aliaser = term_aliaser or TermAliaser()
+    result: list[ExperimentEvent] = []
+    for raw in items:
+        if not isinstance(raw, dict) or not raw.get("description"):
+            continue
+        # parameters
+        parameters: dict[str, FieldValue] = {}
+        for k, v in (raw.get("parameters") or {}).items():
+            if isinstance(v, dict):
+                parameters[k] = FieldValue(
+                    value=v.get("value"),
+                    unit=v.get("unit"),
+                    confidence=v.get("confidence"),
+                )
+        # inputs
+        inputs: list[EventIO] = []
+        for inp in raw.get("inputs") or []:
+            if not isinstance(inp, dict) or not inp.get("material_ref_local"):
+                continue
+            amt_raw = inp.get("amount")
+            amt = None
+            if isinstance(amt_raw, dict) and amt_raw.get("value") is not None:
+                amt = FieldValue(
+                    value=amt_raw.get("value"),
+                    unit=amt_raw.get("unit"),
+                    confidence=amt_raw.get("confidence"),
+                )
+            inputs.append(EventIO(
+                material_ref=str(inp["material_ref_local"]),
+                amount=amt,
+                notes=inp.get("notes"),
+            ))
+        # outputs
+        outputs: list[EventOutput] = []
+        for outp in raw.get("outputs") or []:
+            if not isinstance(outp, dict) or not outp.get("material_ref_local"):
+                continue
+            amt_raw = outp.get("amount")
+            amt = None
+            if isinstance(amt_raw, dict) and amt_raw.get("value") is not None:
+                amt = FieldValue(
+                    value=amt_raw.get("value"),
+                    unit=amt_raw.get("unit"),
+                    confidence=amt_raw.get("confidence"),
+                )
+            outputs.append(EventOutput(
+                material_ref=str(outp["material_ref_local"]),
+                amount=amt,
+                notes=outp.get("notes"),
+                target_phase=outp.get("target_phase"),
+                failure_marker=outp.get("failure_marker"),
+            ))
+        # observations
+        obs_list: list[FieldValue] = []
+        for ob in raw.get("observations") or []:
+            if isinstance(ob, dict):
+                obs_list.append(FieldValue(
+                    value=ob.get("value"),
+                    unit=ob.get("unit"),
+                    confidence=ob.get("confidence"),
+                ))
+            else:
+                obs_list.append(FieldValue(value=str(ob)))
+        # action_type aliased via TermAliaser
+        action_type = aliaser.canonical_step_type(
+            raw.get("action_type") or raw.get("description", "")
+        )
+        result.append(ExperimentEvent(
+            sequence_index=int(raw.get("sequence_index") or len(result) + 1),
+            date_label=raw.get("date_label"),
+            date_iso=raw.get("date_iso"),
+            location=raw.get("location"),
+            instrument_ref=raw.get("instrument_ref_local"),
+            sample_ref=raw.get("sample_ref_local"),
+            operator=raw.get("operator"),
+            action_type=action_type,
+            description=str(raw["description"]),
+            inputs=inputs,
+            outputs=outputs,
+            parameters=parameters,
+            recipe_ratio=raw.get("recipe_ratio") if isinstance(raw.get("recipe_ratio"), dict) else None,
+            equation=raw.get("equation"),
+            observations=obs_list,
+            page_ref=page_id,
+            confidence=raw.get("confidence"),
+        ))
+    # source_path is currently accepted for API symmetry with the rest of the
+    # parsers (and to allow future evidence_ref construction here without
+    # changing the signature). Not used yet.
+    _ = source_path
+    return result
+
+
 class DocumentProcessor:
     """Convert notebook pages into page-level packets."""
 
@@ -529,94 +639,11 @@ class DocumentProcessor:
         return result
 
     def _events_from_payload(self, items, image_path, page_id):
-        """Parse VLM event list. material_ref_local / instrument_ref_local 保留为字符串，
-        留给 Orchestrator 解析到真正的 material_id / instrument_id。
+        """Thin shim around :func:`parse_events_from_payload`.
+
+        Kept for backward compatibility with external callers that bound to the
+        private method before the module-level helper was extracted.
         """
-        if not isinstance(items, list):
-            return []
-        result = []
-        for raw in items:
-            if not isinstance(raw, dict) or not raw.get("description"):
-                continue
-            # parameters
-            parameters = {}
-            for k, v in (raw.get("parameters") or {}).items():
-                if isinstance(v, dict):
-                    parameters[k] = FieldValue(
-                        value=v.get("value"),
-                        unit=v.get("unit"),
-                        confidence=v.get("confidence"),
-                    )
-            # inputs
-            inputs = []
-            for inp in raw.get("inputs") or []:
-                if not isinstance(inp, dict) or not inp.get("material_ref_local"):
-                    continue
-                amt_raw = inp.get("amount")
-                amt = None
-                if isinstance(amt_raw, dict) and amt_raw.get("value") is not None:
-                    amt = FieldValue(
-                        value=amt_raw.get("value"),
-                        unit=amt_raw.get("unit"),
-                        confidence=amt_raw.get("confidence"),
-                    )
-                inputs.append(EventIO(
-                    material_ref=str(inp["material_ref_local"]),
-                    amount=amt,
-                    notes=inp.get("notes"),
-                ))
-            # outputs
-            outputs = []
-            for outp in raw.get("outputs") or []:
-                if not isinstance(outp, dict) or not outp.get("material_ref_local"):
-                    continue
-                amt_raw = outp.get("amount")
-                amt = None
-                if isinstance(amt_raw, dict) and amt_raw.get("value") is not None:
-                    amt = FieldValue(
-                        value=amt_raw.get("value"),
-                        unit=amt_raw.get("unit"),
-                        confidence=amt_raw.get("confidence"),
-                    )
-                outputs.append(EventOutput(
-                    material_ref=str(outp["material_ref_local"]),
-                    amount=amt,
-                    notes=outp.get("notes"),
-                    target_phase=outp.get("target_phase"),
-                    failure_marker=outp.get("failure_marker"),
-                ))
-            # observations
-            obs_list = []
-            for ob in raw.get("observations") or []:
-                if isinstance(ob, dict):
-                    obs_list.append(FieldValue(
-                        value=ob.get("value"),
-                        unit=ob.get("unit"),
-                        confidence=ob.get("confidence"),
-                    ))
-                else:
-                    obs_list.append(FieldValue(value=str(ob)))
-            # action_type aliased via TermAliaser
-            action_type = self.term_aliaser.canonical_step_type(
-                raw.get("action_type") or raw.get("description", "")
-            )
-            result.append(ExperimentEvent(
-                sequence_index=int(raw.get("sequence_index") or len(result) + 1),
-                date_label=raw.get("date_label"),
-                date_iso=raw.get("date_iso"),
-                location=raw.get("location"),
-                instrument_ref=raw.get("instrument_ref_local"),
-                sample_ref=raw.get("sample_ref_local"),
-                operator=raw.get("operator"),
-                action_type=action_type,
-                description=str(raw["description"]),
-                inputs=inputs,
-                outputs=outputs,
-                parameters=parameters,
-                recipe_ratio=raw.get("recipe_ratio") if isinstance(raw.get("recipe_ratio"), dict) else None,
-                equation=raw.get("equation"),
-                observations=obs_list,
-                page_ref=page_id,
-                confidence=raw.get("confidence"),
-            ))
-        return result
+        return parse_events_from_payload(
+            items, image_path, page_id, term_aliaser=self.term_aliaser
+        )
