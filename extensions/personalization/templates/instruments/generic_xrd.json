@@ -1,0 +1,12 @@
+{
+  "instrument_id": "generic_xrd",
+  "display_name": "Generic XRD",
+  "technique": "XRD",
+  "file_patterns": ["*xrd*"],
+  "field_mappings": {
+    "Radiation": "radiation",
+    "Tube Voltage": "tube_voltage_kv",
+    "Tube Current": "tube_current_ma"
+  },
+  "focus_parameters": ["radiation", "tube_voltage_kv", "tube_current_ma"]
+}

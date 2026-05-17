@@ -1,0 +1,26 @@
+{
+  "group_id": "materials_default",
+  "required_fields": ["operator", "sample_id", "materials", "protocol_steps"],
+  "common_step_types": [
+    "weigh",
+    "mix",
+    "stir",
+    "heat",
+    "hold",
+    "cool",
+    "filter",
+    "wash",
+    "dry",
+    "calcine",
+    "sinter",
+    "characterize"
+  ],
+  "sample_id_patterns": ["S{year}{seq}", "EXP-{date}-{seq}"],
+  "term_aliases": {
+    "煅烧": "calcine",
+    "烘干": "dry",
+    "表征": "characterize",
+    "固相法": "solid_state_synthesis",
+    "水热": "hydrothermal"
+  }
+}

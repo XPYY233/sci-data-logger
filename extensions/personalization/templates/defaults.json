@@ -1,0 +1,9 @@
+{
+  "required_fields": ["experiment_id"],
+  "preferred_fields": [],
+  "sample_id_patterns": [],
+  "common_step_types": [],
+  "term_aliases": {},
+  "field_mappings": {},
+  "focus_parameters": []
+}

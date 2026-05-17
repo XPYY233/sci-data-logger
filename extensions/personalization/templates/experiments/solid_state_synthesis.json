@@ -1,0 +1,11 @@
+{
+  "template_id": "solid_state_synthesis",
+  "display_name": "Solid-state synthesis",
+  "required_fields": ["temperature", "duration"],
+  "preferred_fields": ["heating_rate", "atmosphere"],
+  "common_step_types": ["weigh", "mix", "grind", "calcine", "sinter"],
+  "term_aliases": {
+    "预烧": "calcine",
+    "烧结": "sinter"
+  }
+}

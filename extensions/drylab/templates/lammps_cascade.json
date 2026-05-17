@@ -1,0 +1,13 @@
+{
+  "template_id": "lammps_cascade",
+  "display_name": "LAMMPS displacement cascade",
+  "software": "LAMMPS",
+  "required_fields": [
+    "material_system",
+    "potential_type",
+    "temperature_k",
+    "pka_energy_kev",
+    "pka_direction"
+  ],
+  "task_type": "cascade"
+}
