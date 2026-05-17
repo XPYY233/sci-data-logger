@@ -23,7 +23,12 @@ class Settings(BaseSettings):
         default="https://dashscope.aliyuncs.com/compatible-mode/v1",
         alias="QWEN_BASE_URL",
     )
-    qwen_vlm_model: str = Field(default="qwen3.6-plus", alias="QWEN_VLM_MODEL")
+    # Real DashScope vision model alias. Earlier "qwen3.6-plus" was a typo/
+    # placeholder that does not exist on the API — first call would 400.
+    # qwen-vl-max-latest is the always-latest pointer to the most capable
+    # Qwen-VL family member; users can override via QWEN_VLM_MODEL to pick a
+    # cheaper tier like qwen-vl-plus or a pinned version.
+    qwen_vlm_model: str = Field(default="qwen-vl-max-latest", alias="QWEN_VLM_MODEL")
     qwen_request_timeout: int = Field(default=180, alias="QWEN_REQUEST_TIMEOUT")
     qwen_vl_high_resolution_images: bool = Field(
         default=True,
@@ -79,6 +84,12 @@ class Settings(BaseSettings):
         default=400,
         alias="SCI_DATA_LOGGER_CONTEXT_HINT_TAIL_CHARS",
     )
+
+    # Optional API key. When None / empty, all endpoints are open (current
+    # dev/test default — keeps 114 existing tests passing). When set, every
+    # endpoint except /health requires header X-API-Key: <value>; mismatch
+    # returns 401. Set via SCI_DATA_LOGGER_API_KEY env or .env file.
+    api_key: str | None = Field(default=None, alias="SCI_DATA_LOGGER_API_KEY")
 
     def ensure_storage(self) -> Path:
         self.storage_root.mkdir(parents=True, exist_ok=True)

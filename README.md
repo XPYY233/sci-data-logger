@@ -74,16 +74,27 @@ pip install -e ".[dev]"
 ```bash
 DASHSCOPE_API_KEY=sk-...
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-QWEN_VLM_MODEL=qwen3-vl-plus      # 或者你账号可用的视觉模型 ID
+# 默认 qwen-vl-max-latest（DashScope 上的真实 always-latest 别名）。
+# 备选：qwen-vl-plus (更便宜)、qwen-vl-max (主版固定)、qwen3-vl-plus (Qwen3 系)。
+QWEN_VLM_MODEL=qwen-vl-max-latest
+```
+
+**对外暴露端口前**：务必启用 API key（默认开放，便于本地开发）：
+
+```bash
+# 32+ 字符强随机字符串。所有端点（除 /health）会要求 header X-API-Key: <value>，
+# 不匹配返回 401。不设或留空 = 完全开放（开发模式）。
+SCI_DATA_LOGGER_API_KEY=$(openssl rand -hex 32)
 ```
 
 可选 tuning（全部有合理默认值，详见 [`src/sci_data_logger/config.py`](src/sci_data_logger/config.py)）：
 
 ```bash
-# 重试
+# 重试 / 总 wallclock 上限
 QWEN_MAX_RETRIES=3
 QWEN_RETRY_BASE_DELAY=1.0
 QWEN_RETRY_MAX_DELAY=20.0
+QWEN_RETRY_MAX_TOTAL_SECONDS=60.0
 
 # 并发与预处理
 SCI_DATA_LOGGER_VLM_CONCURRENCY=4
@@ -237,9 +248,11 @@ DraftExperimentRequest
 
 ## API 参考
 
+> **Auth**：除 `/health` 外，所有端点在 `SCI_DATA_LOGGER_API_KEY` 已配置时都要求 header `X-API-Key: <value>`，不匹配返回 401。未配置 = 完全开放（默认开发模式）。
+
 | Method | Path | 说明 |
 |---|---|---|
-| GET | `/health` | 健康检查；返回模型 / DashScope 配置状态 |
+| GET | `/health` | Liveness + readiness：跑 `SELECT 1` 真检 DB，DB 不可达返回 **503** + `status:"degraded"`；同时返回 `vlm_model` / `dashscope_configured` / `api_key_enforced`。**总是开放**（即使 API key 启用），方便 k8s/LB 探活 |
 | GET | `/runtime/config` | 当前运行时配置（不含 secret） |
 | POST | `/experiments/draft` | 仅 JSON 元数据创建空草稿（用于先建实验再后续补传文件） |
 | POST | `/experiments/draft/upload` | multipart：上传图片 + 仪器文件 + 字段，直接落库 |

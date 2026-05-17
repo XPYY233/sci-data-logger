@@ -12,6 +12,7 @@ from fastapi import (
     Depends,
     File,
     Form,
+    Header,
     HTTPException,
     Query,
     Response,
@@ -19,6 +20,7 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import text
 from sqlmodel import Session
 
 from sci_data_logger.config import Settings, get_settings
@@ -33,7 +35,35 @@ from sci_data_logger.schemas import (
 )
 from sci_data_logger.services.orchestrator import ExperimentOrchestrator
 
-router = APIRouter()
+
+def require_api_key(
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+) -> None:
+    """Reject requests when SCI_DATA_LOGGER_API_KEY is configured and the
+    header is missing or wrong.
+
+    When the setting is unset / empty, ALL requests pass — this keeps
+    development and existing test suites working without auth scaffolding.
+    Production deployments should set SCI_DATA_LOGGER_API_KEY to a strong
+    random value (≥ 32 hex chars).
+    """
+    configured = get_settings().api_key
+    if not configured:
+        return
+    if not x_api_key or x_api_key != configured:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="missing or invalid X-API-Key header",
+            headers={"WWW-Authenticate": 'ApiKey realm="sci-data-logger"'},
+        )
+
+
+# /health stays open for liveness probes (k8s, load balancer) which typically
+# can't supply auth headers. Everything else goes on `router` with a
+# router-level Depends(require_api_key).
+health_router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_api_key)])
+
 SAFE_PATH_PART_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -43,16 +73,38 @@ class StatusUpdateRequest(BaseModel):
     status: ReviewStatus
 
 
-@router.get("/health")
-def health() -> dict[str, object]:
+@health_router.get("/health")
+def health(
+    response: Response,
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    """Liveness + readiness probe.
+
+    - Always returns the static configuration snapshot (app name, version,
+      model id, whether DashScope key is configured, whether API-key auth
+      is enforced).
+    - Runs ``SELECT 1`` against the DB. On failure returns HTTP 503
+      ``{"status": "degraded", ...}`` so monitoring can tell the difference
+      between "process alive but DB broken" and "fully healthy".
+    """
     settings = get_settings()
-    return {
-        "status": "ok",
+    result: dict[str, object] = {
         "app": settings.app_name,
         "version": settings.app_version,
         "vlm_model": settings.qwen_vlm_model,
         "dashscope_configured": bool(settings.dashscope_api_key),
+        "api_key_enforced": bool(settings.api_key),
     }
+    try:
+        session.execute(text("SELECT 1"))
+        result["database"] = "ok"
+    except Exception as exc:  # noqa: BLE001 — health endpoint logs and degrades
+        result["database"] = f"error: {exc.__class__.__name__}"
+        result["status"] = "degraded"
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return result
+    result["status"] = "ok"
+    return result
 
 
 @router.post("/experiments/draft", response_model=ExperimentRecord)
