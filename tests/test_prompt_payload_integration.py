@@ -247,3 +247,7 @@ def test_prompt_shaped_payload_chain_forms_when_outputs_link_inputs(tmp_path):
         "Prompt-shaped events.outputs → next events.inputs chain did not form; "
         "_link_event_chains may be skipping material_ref resolution from the prompt path"
     )
+    # Edge-count invariant: exactly one upstream producer for calcine, no
+    # phantom edges fabricated. Round-3 reviewer asked to pin this.
+    assert len(e_calcine.derived_from) == 1
+    assert len(e_weigh.produces_for) == 1
