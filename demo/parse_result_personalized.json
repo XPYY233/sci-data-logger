@@ -1,0 +1,174 @@
+{
+  "experiment_id": "HEA-CS-20260517-01",
+  "profile_context": {
+    "group_id": "materials_default",
+    "experiment_template_id": "solid_state_synthesis",
+    "instrument_id": "lab_xrd",
+    "user_id": "fanjunran"
+  },
+  "present_fields": [
+    "atmosphere",
+    "experiment_id",
+    "group_id",
+    "heating_rate",
+    "materials",
+    "operator",
+    "project_id",
+    "protocol_steps",
+    "sample_id",
+    "temperature"
+  ],
+  "missing_required_fields": [
+    "duration"
+  ],
+  "normalized_steps": [
+    {
+      "raw_step_type": "称量",
+      "normalized_step_type": "weigh",
+      "description": "按等原子比称量各氧化物原料"
+    },
+    {
+      "raw_step_type": "混料",
+      "normalized_step_type": "ball_mill_mixing",
+      "description": "行星球磨混料 12h，转速 300 rpm"
+    },
+    {
+      "raw_step_type": "预烧",
+      "normalized_step_type": "calcine",
+      "description": "900°C 预烧 12h，升温速率 5°C/min，空气气氛"
+    },
+    {
+      "raw_step_type": "一烧",
+      "normalized_step_type": "calcine_stage_1",
+      "description": "1100°C 烧结 24h，升温速率 3°C/min"
+    },
+    {
+      "raw_step_type": "表征",
+      "normalized_step_type": "characterize",
+      "description": "XRD 物相分析，Cu Kα，40kV，40mA"
+    },
+    {
+      "raw_step_type": "称量",
+      "normalized_step_type": "weigh",
+      "description": "称量 Mo 和 Nb 氧化物"
+    },
+    {
+      "raw_step_type": "煅烧",
+      "normalized_step_type": "calcine",
+      "description": "800°C 煅烧 6h"
+    },
+    {
+      "raw_step_type": "称量",
+      "normalized_step_type": "weigh",
+      "description": "按等原子比称量各氧化物原料"
+    },
+    {
+      "raw_step_type": "混料",
+      "normalized_step_type": "ball_mill_mixing",
+      "description": "行星球磨混料 12h"
+    },
+    {
+      "raw_step_type": "预烧",
+      "normalized_step_type": "calcine",
+      "description": "900°C 预烧 12h"
+    },
+    {
+      "raw_step_type": "一烧",
+      "normalized_step_type": "calcine_stage_1",
+      "description": "1100°C 烧结 24h"
+    },
+    {
+      "raw_step_type": "表征",
+      "normalized_step_type": "characterize",
+      "description": "XRD 物相分析"
+    }
+  ],
+  "review_issues": [
+    {
+      "severity": "warning",
+      "title": "个性化必填字段缺失",
+      "detail": "缺少字段：duration",
+      "field": "duration"
+    }
+  ],
+  "effective_profile": {
+    "required_fields": [
+      "experiment_id",
+      "operator",
+      "sample_id",
+      "materials",
+      "protocol_steps",
+      "temperature",
+      "duration",
+      "atmosphere"
+    ],
+    "preferred_fields": [
+      "heating_rate",
+      "atmosphere",
+      "sample_id",
+      "duration"
+    ],
+    "sample_id_patterns": [
+      "S{year}{seq}",
+      "EXP-{date}-{seq}",
+      "HEA-{date}-{seq}",
+      "CS-{material}-{date}"
+    ],
+    "common_step_types": [
+      "weigh",
+      "mix",
+      "stir",
+      "heat",
+      "hold",
+      "cool",
+      "filter",
+      "wash",
+      "dry",
+      "calcine",
+      "sinter",
+      "characterize",
+      "grind"
+    ],
+    "term_aliases": {
+      "煅烧": "calcine",
+      "烘干": "dry",
+      "表征": "characterize",
+      "固相法": "solid_state_synthesis",
+      "水热": "hydrothermal",
+      "预烧": "calcine",
+      "烧结": "sinter",
+      "称量": "weigh",
+      "混料": "ball_mill_mixing",
+      "一烧": "calcine_stage_1",
+      "二烧": "calcine_stage_2"
+    },
+    "field_mappings": {
+      "KV": "tube_voltage_kv",
+      "mA": "tube_current_ma",
+      "2θ": "two_theta"
+    },
+    "focus_parameters": [
+      "tube_voltage_kv",
+      "tube_current_ma",
+      "scan_range",
+      "scan_speed"
+    ],
+    "file_patterns": [
+      "*lab-xrd*",
+      "*xrd*",
+      "*.raw"
+    ],
+    "handwriting_notes": [
+      "1 与 7 易混淆",
+      "°C 常写成 C",
+      "速率省略单位默认 °C/min"
+    ],
+    "profile_context": {
+      "group_id": "materials_default",
+      "experiment_template_id": "solid_state_synthesis",
+      "instrument_id": "lab_xrd",
+      "user_id": "fanjunran"
+    }
+  },
+  "analysis_run_id": "wet_63601ca5a086"
+}

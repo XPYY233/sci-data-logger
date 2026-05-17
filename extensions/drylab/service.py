@@ -4,7 +4,16 @@ from pathlib import Path
 
 from .lammps import import_lammps_directory
 from .models import ResearchCase, ResearchLink, SimulationRun
-from .repository import DEFAULT_DB_PATH, create_case, get_case, link_target, query_runs, save_run
+from .repository import (
+    DEFAULT_DB_PATH,
+    create_case,
+    get_case,
+    get_run,
+    link_target,
+    list_cases,
+    query_runs,
+    save_run,
+)
 
 
 def create_research_case(
@@ -42,7 +51,9 @@ def import_lammps_run(
 __all__ = [
     "create_research_case",
     "get_case",
+    "get_run",
     "import_lammps_run",
     "link_wet_experiment",
+    "list_cases",
     "query_runs",
 ]

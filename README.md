@@ -1,6 +1,19 @@
 # Sci Data Logger · 材料科研实验记录智能处理框架
 
-一个把**手写实验本图片 / 扫描 PDF / 仪器文件 / 用户补录信息**汇合成结构化、可审核、可入库的实验记录的端到端框架。
+一个把**手写实验本图片 / 扫描 PDF / 仪器文件 / 用户补录信息**汇合成结构化、可审核、可入库实验记录的科研记录框架。
+
+当前仓库已经在最初的湿实验主干之上，进一步演进出一层**外挂式扩展架构**：
+
+- 主干继续负责湿实验解析、时间线重建、审核与入库；
+- `extensions/personalization/` 负责不同用户、实验类型与仪器习惯的个性化规则；
+- `extensions/drylab/` 负责 LAMMPS 等干实验记录、研究案例与湿实验关联；
+- `extensions/workbench/` 提供独立网页入口，把个性化能力变成组员可直接使用的日常工作台。
+
+这意味着项目当前的目标，已经从“处理一份湿实验记录”扩展为：
+
+> **在保持核心稳定的前提下，逐步形成可服务不同研究者、不同实验范式的科研记录平台。**
+
+> **给后续 AI agent 的必读入口**：进入仓库后先读 [`AGENTS.md`](AGENTS.md)；如果你要新增、修改或评审任何外挂能力，再继续阅读 [`docs/extensions/extension_contract.md`](docs/extensions/extension_contract.md)。
 
 ```
 ┌──────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
@@ -22,11 +35,38 @@
                               └────────────────────────────────────┘
 ```
 
-设计取向：**可配置 / 可扩展 / 可追溯**。每个抽取出的字段都带 `EvidenceRef`（指向原图位置 + 置信度），低置信度自动进入 `review_issues`，等待人工复核。
+设计取向：**可配置 / 可扩展 / 可追溯 / 主干冻结、外挂优先**。每个抽取出的字段都带 `EvidenceRef`（指向原图位置 + 置信度），低置信度自动进入 `review_issues`，等待人工复核；新增能力优先以独立扩展交付，避免多人并行开发时互相干扰。完整分层说明见 [`docs/architecture.md`](docs/architecture.md)。
 
 ---
 
 ## 功能
+
+### 当前扩展层（本轮新增重点）
+
+| 扩展 | 作用 | 当前能力 |
+|---|---|---|
+| **湿实验个性化** | 让系统适配不同用户、实验类型与仪器习惯 | 用户 profile、实验模板、仪器模板、共享模板 + 本地覆盖、术语归一、个性化 review issues |
+| **干实验 / LAMMPS** | 把模拟研究纳入统一科研记录体系 | `ResearchCase`、`SimulationRun`、LAMMPS 目录导入、湿干实验关联、查询与 CSV 导出 |
+| **个性化工作台** | 把个性化能力变成可直接使用的网页入口 | 用户切换、记录上传、模板选择、结果解释、个人 profile 基础编辑 |
+
+### 当前架构分层
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ extensions/workbench/                                        │
+│ 面向用户的网页入口：用户切换、上传、结果解释、规则编辑        │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+┌──────────────────────────────▼───────────────────────────────┐
+│ extensions/personalization/   extensions/drylab/              │
+│ 个性化规则层                  干实验记录与研究关联层          │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+┌──────────────────────────────▼───────────────────────────────┐
+│ src/sci_data_logger/                                         │
+│ 冻结主干：湿实验解析、编排、审核、SQLite / API                │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ### 识别（input → PagePacket）
 
@@ -50,7 +90,7 @@
 | **混合存储** | 单表 `experiments`：scalar 列（experiment_id / project / group / status / timestamps）+ `record_json` blob（完整 pydantic `ExperimentRecord`）。SQLite JSON1 足以应付当前查询 |
 | **Schema 演化友好** | pydantic v2 model 是单一权威，DB 不预先 normalize，避免 Phase 0/1 阶段反复改表 |
 | **CRUD + 审核 API** | `GET/PATCH/DELETE /experiments/{id}`、`GET /experiments?status=...`、`POST /experiments/{id}/review-issues/{issue_id}/resolve` |
-| **审核状态机** | `ReviewStatus`：`draft → needs_review → reviewed → locked`（注意：当前 PATCH 还没强制状态迁移合法性，详见 [`docs/architecture.md`](docs/architecture.md) 路线图） |
+| **审核状态机** | `ReviewStatus`：`draft → needs_review → reviewed → locked`（注意：当前 PATCH 还没强制状态迁移合法性，见下方“已知局限”） |
 | **Material 跨页合并** | dedup key 仅用 `canonical_name`（不再带 role），同一物质多 role 累计到 `roles: list[str]`；event 解析中 auto-create 的 stub 会被 reconcile pass 合并回真实条目 |
 
 ---
@@ -104,6 +144,45 @@ uvicorn sci_data_logger.main:app --reload
 curl http://127.0.0.1:8000/health
 ```
 
+### 启动个性化工作台（外挂）
+
+```bash
+python -m extensions.workbench.cli serve
+```
+
+打开：
+
+```text
+http://127.0.0.1:8015/workbench
+```
+
+工作台首版支持：
+
+- 共享电脑上的用户切换；
+- 上传湿实验记录；
+- 选择课题组 / 实验 / 仪器模板；
+- 查看个性化术语归一、缺失字段和补充建议；
+- 维护个人 profile 的基础规则。
+
+### 扩展命令示例
+
+```bash
+# 1. 创建 / 更新湿实验个性化配置
+python -m extensions.personalization.cli wizard \
+  --answers-json .local_data/extensions/personalization/fanjunran_phase1_answers.json
+
+# 2. 查看当前真正生效的个性化规则
+python -m extensions.personalization.cli show-effective \
+  --user-id fanjunran \
+  --experiment-template solid_state_synthesis \
+  --instrument-template generic_xrd
+
+# 3. 导入一组 LAMMPS 模拟目录
+python -m extensions.drylab.cli import-lammps \
+  --source-root /path/to/lammps/run \
+  --case-id HEA-CASCADE-001
+```
+
 ### 一次完整调用
 
 ```bash
@@ -153,8 +232,11 @@ configs/
   group_templates.example.json  课题组术语别名 / 必填字段规则
 
 docs/
-  architecture.md               架构总览 + 路线图
+  architecture.md               当前 core + extensions 分层架构说明
+  extensions/                   外挂契约、协作规范 + Phase 1 / 1.5 / 2 用户指南
   superpowers/                  Phase 0/1 设计 spec & plan
+
+AGENTS.md                       给后续 AI agent 的仓库级入口说明
 
 src/sci_data_logger/
   api/routes.py                 FastAPI 路由：draft 创建 + CRUD + review
@@ -177,7 +259,12 @@ src/sci_data_logger/
     json_tools.py               从 VLM 自由文本里抠出第一个 JSON 对象
   vlm/client.py                 QwenVLMClient（tenacity 重试 + 图像降采样）
 
-tests/                          57 个测试用例（pytest）
+extensions/
+  personalization/              湿实验个性化规则、模板、sidecar DB 与 CLI
+  drylab/                       干实验 / LAMMPS 记录与研究案例关联
+  workbench/                    独立网页工作台，不改主干即可运行
+
+tests/                          96 个测试用例（pytest）
   test_data/                    实验本样本图（私库专用）
   ...
 ```
@@ -254,8 +341,8 @@ DraftExperimentRequest
 ### 运行测试
 
 ```bash
-PYTHONPATH=src python -m pytest tests/ -q
-# 57 passed
+python -m pytest tests/ -q
+# 96 passed
 ```
 
 ### 代码质量
@@ -292,6 +379,45 @@ class MyXRDAdapter:
 | Medium | Engine dispose | `lru_cache` 持有 SQLite engine，生产路径无清理路径 |
 
 详细 review 报告（私密）参见 `reports/`（已 gitignore）。
+
+---
+
+## 外挂协作策略
+
+当前仓库采用：
+
+> **主干冻结、外挂优先、兼容优先**
+
+### 原则
+
+- 默认不修改 `src/sci_data_logger/` 下的核心主干；
+- 新功能优先放入 `extensions/<domain>/`；
+- 每个扩展尽量自带：
+  - 自己的 CLI / Web 入口；
+  - 自己的模板与配置；
+  - 自己的 sidecar 数据；
+  - 自己的测试与文档；
+- 与主项目交互时，优先通过已有对象 ID、公开服务或文件边界建立松耦合关系。
+
+### 为什么这样做
+
+这种方式让不同人、不同 AI agent 可以并行推进：
+
+- 有人继续优化湿实验主干；
+- 有人扩充个性化规则；
+- 有人做干实验；
+- 有人做更友好的 UI；
+
+而不会因为频繁修改同一批核心文件产生高耦合冲突。
+
+更多细节见：
+
+- [`AGENTS.md`](AGENTS.md)
+- [`docs/architecture.md`](docs/architecture.md)
+- [`docs/extensions/extension_contract.md`](docs/extensions/extension_contract.md)
+- [`docs/extensions/collaboration_guidelines.md`](docs/extensions/collaboration_guidelines.md)
+- [`docs/extensions/README.md`](docs/extensions/README.md)
+- [`docs/extensions/phase1_5_workbench_user_guide.md`](docs/extensions/phase1_5_workbench_user_guide.md)
 
 ---
 

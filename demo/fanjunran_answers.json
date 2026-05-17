@@ -1,0 +1,21 @@
+{
+  "user_id": "fanjunran",
+  "display_name": "范君然",
+  "user_term_aliases": {"一烧": "calcine_stage_1", "二烧": "calcine_stage_2", "混料": "ball_mill_mixing"},
+  "sample_id_patterns": ["HEA-{date}-{seq}", "CS-{material}-{date}"],
+  "user_preferred_fields": ["heating_rate", "atmosphere", "duration"],
+  "user_required_fields": ["atmosphere", "temperature"],
+  "handwriting_notes": ["1 与 7 易混淆", "°C 常写成 C", "速率省略单位默认 °C/min"],
+  "experiment_template_id": "solid_state_synthesis",
+  "experiment_display_name": "固相合成",
+  "experiment_required_fields": ["temperature", "duration", "materials"],
+  "experiment_preferred_fields": ["heating_rate", "atmosphere", "sample_id"],
+  "common_step_types": ["weigh", "mix", "grind", "calcine", "sinter", "characterize"],
+  "experiment_term_aliases": {"预烧": "calcine", "烧结": "sinter", "称量": "weigh", "混料": "mix", "表征": "characterize"},
+  "instrument_id": "lab_xrd",
+  "instrument_display_name": "实验室 XRD (Rigaku)",
+  "technique": "XRD",
+  "file_patterns": ["*lab-xrd*", "*xrd*", "*.raw"],
+  "field_mappings": {"KV": "tube_voltage_kv", "mA": "tube_current_ma", "2θ": "two_theta"},
+  "focus_parameters": ["tube_voltage_kv", "tube_current_ma", "scan_range", "scan_speed"]
+}

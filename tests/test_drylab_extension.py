@@ -86,3 +86,20 @@ def test_import_lammps_directory_indexes_assets(tmp_path: Path) -> None:
     asset_types = {asset.asset_type for asset in run.assets}
 
     assert {"lammps_input", "lammps_log", "folder_index", "dump"}.issubset(asset_types)
+
+
+def test_list_show_and_export_user_views(tmp_path: Path) -> None:
+    from extensions.drylab.repository import get_run, list_cases
+
+    db_path = tmp_path / "drylab.db"
+    run_dir = _make_run_dir(tmp_path)
+    create_research_case("CASE-VIEW", "Viewable case", db_path=db_path)
+    run = import_lammps_run(run_dir, case_id="CASE-VIEW", db_path=db_path)
+
+    cases = list_cases(db_path=db_path)
+    shown = get_run(run.run_id, db_path=db_path)
+
+    assert cases[0]["case_id"] == "CASE-VIEW"
+    assert cases[0]["simulation_run_count"] == 1
+    assert shown["run_id"] == run.run_id
+    assert any(asset["asset_type"] == "lammps_input" for asset in shown["assets"])

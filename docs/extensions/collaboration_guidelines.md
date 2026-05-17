@@ -36,3 +36,4 @@
 
 - `extensions/personalization/`：湿实验个性化配置与 CLI。
 - `extensions/drylab/`：干实验 / LAMMPS 记录与 `ResearchCase` 关联层。
+- `extensions/workbench/`：完全外挂的湿实验个性化网页工作台。

@@ -86,6 +86,23 @@ def create_case(case: ResearchCase, db_path: Path = DEFAULT_DB_PATH) -> Research
     return case
 
 
+def list_cases(db_path: Path = DEFAULT_DB_PATH) -> list[dict[str, Any]]:
+    with connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                c.*,
+                COUNT(DISTINCT CASE WHEN l.target_type = 'simulation_run' THEN l.target_id END) AS simulation_run_count,
+                COUNT(DISTINCT CASE WHEN l.target_type = 'wet_experiment' THEN l.target_id END) AS wet_experiment_count
+            FROM research_cases c
+            LEFT JOIN research_links l ON l.case_id = c.case_id
+            GROUP BY c.case_id
+            ORDER BY c.updated_at DESC
+            """
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def get_case(case_id: str, db_path: Path = DEFAULT_DB_PATH) -> dict[str, Any] | None:
     with connect(db_path) as conn:
         row = conn.execute("SELECT * FROM research_cases WHERE case_id = ?", (case_id,)).fetchone()
@@ -158,6 +175,20 @@ def link_target(link: ResearchLink, db_path: Path = DEFAULT_DB_PATH) -> Research
     return link
 
 
+def get_run(run_id: str, db_path: Path = DEFAULT_DB_PATH) -> dict[str, Any] | None:
+    with connect(db_path) as conn:
+        row = conn.execute("SELECT * FROM simulation_runs WHERE run_id = ?", (run_id,)).fetchone()
+        if row is None:
+            return None
+        assets = conn.execute(
+            "SELECT source_path, asset_type FROM simulation_assets WHERE run_id = ? ORDER BY asset_type, source_path",
+            (run_id,),
+        ).fetchall()
+    payload = _hydrate_run_row(row)
+    payload["assets"] = [dict(asset) for asset in assets]
+    return payload
+
+
 def query_runs(
     *,
     material_system: str | None = None,
@@ -185,11 +216,12 @@ def query_runs(
     where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
     with connect(db_path) as conn:
         rows = conn.execute(f"SELECT * FROM simulation_runs{where} ORDER BY created_at DESC", values).fetchall()
-    results: list[dict[str, Any]] = []
-    for row in rows:
-        payload = dict(row)
-        payload["pka_direction"] = json.loads(payload.pop("pka_direction_json"))
-        payload["parameters"] = json.loads(payload.pop("parameters_json"))
-        payload["warnings"] = json.loads(payload.pop("warnings_json"))
-        results.append(payload)
-    return results
+    return [_hydrate_run_row(row) for row in rows]
+
+
+def _hydrate_run_row(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["pka_direction"] = json.loads(payload.pop("pka_direction_json"))
+    payload["parameters"] = json.loads(payload.pop("parameters_json"))
+    payload["warnings"] = json.loads(payload.pop("warnings_json"))
+    return payload
