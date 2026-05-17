@@ -17,7 +17,7 @@ This file is read by Claude Code at session start. Keep it short and authoritati
 ## Code
 
 - Python 3.11+, pydantic v2, FastAPI, SQLModel, openai SDK, tenacity, pypdfium2, Pillow.
-- Tests: `PYTHONPATH=src python -m pytest tests/ -q`. Baseline as of feat branch creation: **57 passing**.
+- Tests: `PYTHONPATH=src python -m pytest tests/ -q`. Baseline as of feat branch creation: **57 passing**; current (`feat/schema-viewer-and-gap-fixes` HEAD): **105 passing**.
 - Editable install at repo root: `pip install -e ".[dev]"`. The root `conftest.py` prepends `src/` to sys.path so worktrees don't get shadowed by the outer editable install.
 - Domain entry points to know:
   - `src/sci_data_logger/services/orchestrator.py` — cross-page catalog merge + event resolve + reconcile.
@@ -59,12 +59,14 @@ Two rounds of empirical testing produced this convention:
   allowlist). Ideal for read-only roles: `code-reviewer`, `test-runner`,
   surveys.
 - **Worktree-isolated subagent (`isolation: "worktree"`)** — branches from
-  some old ref (not parent HEAD), and runs with a stricter sandbox even
-  with broad wildcards in settings (the worktree's `.claude/` directory
-  is the same file, but the runtime applies extra constraints). Best for
-  **from-scratch parallel implementation** where each worker doesn't
-  depend on recent main-branch state. Tell them to `git fetch + checkout
-  + reset --hard origin/<feat-branch>` as Step 0 if they need recent code.
+  some old ref (not parent HEAD), so always tell them to `git fetch +
+  checkout + reset --hard origin/<feat-branch>` as Step 0 if they need
+  recent code. **Since landing the project-shared `.claude/settings.json`
+  (commit `39419d7`), worktree subagents inherit the generic allowlist
+  and CAN run `pytest`, `ruff`, and the standard `git` verbs out of the
+  box** (`status / log / diff / fetch / checkout / reset / add / commit /
+  push`). Best for **parallel implementation waves** where each worker
+  drives a self-contained slice and commits/pushes its own branch.
 - **In-tree work** — when you need to apply small follow-up fixes on top
   of feat-branch HEAD, do it in the main worktree (parent agent or a
   foreground subagent that the parent then commits for). Don't spawn a

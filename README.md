@@ -177,7 +177,7 @@ src/sci_data_logger/
     json_tools.py               从 VLM 自由文本里抠出第一个 JSON 对象
   vlm/client.py                 QwenVLMClient（tenacity 重试 + 图像降采样）
 
-tests/                          57 个测试用例（pytest）
+tests/                          105 个测试用例（pytest）
   test_data/                    实验本样本图（私库专用）
   ...
 ```
@@ -194,7 +194,7 @@ tests/                          57 个测试用例（pytest）
 - **FieldValue**：`{value, unit, source_refs, confidence, reviewed}`，是所有可量化字段的统一容器。
 - **EvidenceRef**：`{source_type, source_id, locator, text, confidence}`，每个字段都有来源指针。
 - **ReviewIssue**：审核工单条目（severity / title / detail / evidence_refs）。
-- **ExperimentRecord**：顶层草稿。聚合 `materials_catalog`、`instruments_catalog`、`events`、`pages`、`measurements`、`review_issues`、`source_assets`、`status`、`metadata`。
+- **ExperimentRecord**：顶层草稿。聚合 `materials_catalog`、`instruments_catalog`、`samples_catalog`、`events`、`pages`、`measurements`、`review_issues`、`source_assets`、`status`、`metadata`。`events` 内事件通过 `derived_from` / `produces_for`（由 `_link_event_chains` 填充）形成 DAG 状因果链。
 
 ### Orchestrator 处理流程
 
@@ -209,15 +209,17 @@ DraftExperimentRequest
   │
   ├─► _merge_materials_catalog                  # 跨页 Material 去重，roles 累加
   ├─► _merge_instruments_catalog                # 跨页 Instrument 去重
+  ├─► _merge_samples_catalog                    # 跨页 Sample 去重（Gap 5），事件 sample_ref 解析
   │
   ├─► _resolve_and_merge_events
   │     ├─ 推断 default_year（全文 YMD 标签）
   │     ├─ 逐事件解析 inputs/outputs ref → material_id（auto-create stub 若未匹配）
-  │     ├─ instrument_ref 解析
+  │     ├─ instrument_ref 解析（fuzzy match：NFKD + 前后缀剥离 + 子串兜底）
   │     ├─ label_to_iso(date_label, default_year)
   │     ├─ 全局排序：date_iso → page_idx → page-local sequence_index
   │     └─ reconcile pass：stub 物料合并回真实条目，重写所有 event ref
   │
+  ├─► _link_event_chains                        # Gap 6：建立 derived_from / produces_for 因果链
   ├─► _basic_review                             # 生成 review_issues
   │
   └─► repository.save_record                    # upsert to SQLite
@@ -255,7 +257,7 @@ DraftExperimentRequest
 
 ```bash
 PYTHONPATH=src python -m pytest tests/ -q
-# 57 passed
+# 105 passed
 ```
 
 ### 代码质量
@@ -285,8 +287,13 @@ class MyXRDAdapter:
 | 优先级 | 项 | 说明 |
 |---|---|---|
 | ~~High~~ ✓ | 审核状态机校验 | 已修复：`PATCH /status` 用 `_ALLOWED_STATUS_TRANSITIONS` 强制合法过渡，非法返回 409；`merge_record` 在 LOCKED 时短路 |
+| ~~Low~~ ✓ | step→event 升级丢字段 | 已修复（Wave 1）：legacy `ProtocolStep` 升级 `ExperimentEvent` 时 inputs/outputs 会被复制，保证 `_link_event_chains` 可形成链 |
 | High | Retry × 线程池整体超时 | `tenacity` 仅按 attempt 数停，没整体 wallclock 上限；高错误率时单请求可能挂数分钟 |
 | High | PDF 单页失败容错 | 当前一页 render 异常会拖垮整本 PDF，应改成 per-page try/except |
+| ~~Medium~~ ✓ | LOCKED 上传无可视信号 | 已修复（Wave 2 Y）：`merge_record` 在 LOCKED 时写入 audit `ReviewIssue` 并在响应附 `Locked-Append-Rejected` header |
+| Medium | 重复上传同名文件无去重 | 已加 `source_path` 级别 pages 去重；但同一物理文件二次上传仍会因 uuid 前缀写新副本（限制） |
+| Medium | Gap 3 context hint 仅在 sequential 路径生效 | Wave 2 X：`context_hint_enabled=True` 时强制 `max_workers=1`；并发场景下无 cross-page hint |
+| Medium | Gap 4 `_norm_instrument_token` 仅剥尾缀 | Wave 2 X 已增加 leading prefix list + substring containment 兜底；仍有极端命名（中英混排）漏匹配可能 |
 | Medium | 上传扩展名白名单 | `/experiments/draft/upload` 任何 mimetype 都会落盘 |
 | Medium | Alembic 迁移 | 当前 `init_db` 用 `create_all`，schema 演进时需要正式迁移 |
 | Medium | Engine dispose | `lru_cache` 持有 SQLite engine，生产路径无清理路径 |

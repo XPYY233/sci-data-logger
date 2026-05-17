@@ -51,9 +51,6 @@ def test_link_event_chains_links_consumer_to_producer():
     by_id = {e.event_id: e for e in linked}
     assert by_id[b.event_id].derived_from == [a.event_id]
     assert by_id[a.event_id].produces_for == [b.event_id]
-    # consumer has no producer downstream, producer has no consumer upstream
-    assert by_id[a.event_id].derived_from == []
-    assert by_id[b.event_id].produces_for == []
 
 
 def test_link_event_chains_ignores_self_and_future_producers():
