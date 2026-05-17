@@ -196,3 +196,31 @@ def test_corrupt_record_keeps_cause():
         err = CorruptRecordError("EXP-X", cause=exc)
     assert err.experiment_id == "EXP-X"
     assert isinstance(err.__cause__, ValueError)
+
+
+def test_corrupt_record_triggers_on_malformed_json(app):
+    """Reviewer follow-up: lock in that pydantic-v2's ValidationError covers
+    BOTH well-formed-wrong-shape AND literal malformed JSON. Without this,
+    a future pydantic version that splits the JSON-decode error out of
+    ValidationError would silently regress `_load_record`'s catch."""
+    from sci_data_logger.db.models import ExperimentRecordORM
+    from sci_data_logger.db.session import get_engine_cached, get_session_factory
+
+    factory = get_session_factory(get_engine_cached())
+    with factory() as session:
+        session.add(
+            ExperimentRecordORM(
+                experiment_id="EXP-BAD-JSON",
+                status="draft",
+                # Literally invalid JSON — unterminated object, trailing comma.
+                record_json='{"experiment_id": "EXP-BAD-JSON", "pages": [,',
+            )
+        )
+        session.commit()
+
+    client = TestClient(app, raise_server_exceptions=False)
+    response = client.get("/experiments/EXP-BAD-JSON")
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"]["type"] == "CorruptRecordError"
+    assert "EXP-BAD-JSON" in body["error"]["detail"]

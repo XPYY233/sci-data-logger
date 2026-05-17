@@ -200,7 +200,12 @@ class QwenVLMClient:
                     },
                 )
         # Unreachable: Retrying with reraise=True either returns or raises.
-        raise RuntimeError("VLM retry loop exited without result")
+        # Use the domain type anyway so that, if tenacity ever changes its
+        # contract, the global handler still emits a typed 503 instead of a
+        # bare stdlib RuntimeError leaking as 500.
+        raise VLMTransientError(
+            "VLM retry loop exited without result (tenacity contract violated)"
+        )
 
     @staticmethod
     def _image_data_url(
