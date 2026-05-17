@@ -1,0 +1,63 @@
+{
+  "_comment": "Project-shared Claude Code permissions. Generic wildcards for safe read-ops + test/lint that subagents need. Per-developer specific commands belong in settings.local.json (gitignored).",
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(pip show *)",
+      "Bash(pip list *)",
+
+      "Bash(python -c *)",
+      "Bash(python -m pytest *)",
+      "Bash(python -m ruff *)",
+      "Bash(python scripts/*)",
+      "Bash(PYTHONPATH=* python *)",
+      "Bash(PYTHONPATH=* python -c *)",
+      "Bash(PYTHONPATH=* python -m pytest *)",
+      "Bash(PYTHONPATH=* python scripts/*)",
+
+      "Bash(pytest *)",
+      "Bash(ruff *)",
+
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(git rev-parse *)",
+      "Bash(git rev-list *)",
+      "Bash(git ls-files *)",
+      "Bash(git ls-tree *)",
+      "Bash(git config --get *)",
+      "Bash(git config --global --get *)",
+      "Bash(git worktree list *)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)",
+      "Bash(git reset *)",
+      "Bash(git stash *)",
+      "Bash(git tag *)",
+      "Bash(git merge *)",
+      "Bash(git add *)",
+      "Bash(git remote *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git init *)",
+
+      "Bash(gh repo *)",
+      "Bash(gh pr *)",
+      "Bash(gh api *)",
+      "Bash(gh auth status *)",
+
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(find . *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(wc *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(du *)",
+      "Bash(file *)",
+      "Bash(stat *)"
+    ]
+  }
+}
