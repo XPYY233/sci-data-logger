@@ -151,3 +151,78 @@ def test_orchestrator_sequential_path_threads_context_between_pages(
     assert "球磨结束" in fake_dp.calls[1]
 
     get_settings.cache_clear()
+
+
+class _SequentialityRecordingDocumentProcessor:
+    """Records prev_tail + per-call timestamps so we can assert strict ordering."""
+
+    def __init__(self, pages_per_call: list[list[PagePacket]]) -> None:
+        self._pages_per_call = list(pages_per_call)
+        self.prev_tails: list[str | None] = []
+        self.call_intervals: list[tuple[float, float]] = []
+
+    def analyze_pages(
+        self, source_path: Path, prev_tail: str | None = None
+    ) -> list[PagePacket]:
+        import time
+
+        start = time.perf_counter()
+        # Tiny sleep so overlapping concurrent calls would be detectable.
+        time.sleep(0.01)
+        self.prev_tails.append(prev_tail)
+        end = time.perf_counter()
+        self.call_intervals.append((start, end))
+        return self._pages_per_call.pop(0)
+
+
+def test_context_hint_forces_sequential_even_with_high_vlm_concurrency(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """When context hint is enabled, vlm_concurrency=8 must NOT spawn parallel calls."""
+    monkeypatch.setenv("SCI_DATA_LOGGER_VLM_CONCURRENCY", "8")
+    monkeypatch.setenv("SCI_DATA_LOGGER_CONTEXT_HINT_ENABLED", "true")
+    monkeypatch.setenv("SCI_DATA_LOGGER_CONTEXT_HINT_TAIL_CHARS", "400")
+    get_settings.cache_clear()
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    img2 = tmp_path / "p2.jpg"
+    img2.write_bytes(b"x")
+    img3 = tmp_path / "p3.jpg"
+    img3.write_bytes(b"x")
+
+    page1 = PagePacket(
+        source_path=str(img1), text_blocks=["页1开头", "页1结尾-A"]
+    )
+    page2 = PagePacket(
+        source_path=str(img2), text_blocks=["页2开头", "页2结尾-B"]
+    )
+    page3 = PagePacket(source_path=str(img3), text_blocks=["页3"])
+
+    fake_dp = _SequentialityRecordingDocumentProcessor([[page1], [page2], [page3]])
+    orch = ExperimentOrchestrator(document_processor=fake_dp)
+    orch.create_draft(
+        DraftExperimentRequest(
+            experiment_id="EXP-CTX-CONCURRENCY",
+            image_paths=[img1, img2, img3],
+        )
+    )
+
+    # (a) prev_tail chain is correct: None → tail-of-page1 → tail-of-page2.
+    assert len(fake_dp.prev_tails) == 3
+    assert fake_dp.prev_tails[0] is None
+    assert fake_dp.prev_tails[1] is not None
+    assert "页1结尾-A" in fake_dp.prev_tails[1]
+    assert fake_dp.prev_tails[2] is not None
+    assert "页2结尾-B" in fake_dp.prev_tails[2]
+
+    # (b) calls are strictly sequential — each start >= previous end (no overlap).
+    starts = [s for s, _ in fake_dp.call_intervals]
+    ends = [e for _, e in fake_dp.call_intervals]
+    assert starts == sorted(starts), "call start times not monotonic"
+    for i in range(1, len(fake_dp.call_intervals)):
+        assert starts[i] >= ends[i - 1], (
+            f"call {i} started before call {i - 1} finished — concurrency leaked"
+        )
+
+    get_settings.cache_clear()

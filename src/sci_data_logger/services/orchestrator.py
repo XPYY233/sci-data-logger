@@ -24,12 +24,42 @@ from sci_data_logger.services.instrument import InstrumentService
 from sci_data_logger.utils.date_heuristics import infer_default_year, label_to_iso
 
 
+# Leading category prefixes commonly written before a label like "管式炉 707".
+# Longest-first so "管式炉" wins over "管式" — otherwise stripping "管式" would
+# leave a dangling "炉" that the suffix loop only peels off once.
+_INSTRUMENT_LEADING_PREFIXES: tuple[str, ...] = (
+    "X射线衍射仪",
+    "X射线衍射",
+    "扫描电镜",
+    "管式炉",
+    "箱式炉",
+    "立式炉",
+    "马弗炉",
+    "球磨机",
+    "管式",
+    "箱式",
+    "立式",
+    "球磨",
+    "拉曼",
+)
+
+
 def _norm_instrument_token(s: str | None) -> str:
     """NFKD-fold, lowercase, strip whitespace and common Chinese instrument suffixes (炉/箱/机)."""
     if not s:
         return ""
     nfkd = unicodedata.normalize("NFKD", str(s))
     folded = "".join(c for c in nfkd if not unicodedata.combining(c)).lower().strip()
+    # Strip a leading category prefix when followed by whitespace, e.g.
+    # "管式炉 707" → "707". Prefixes are matched case-insensitively because
+    # `folded` is already lowercased.
+    for prefix in _INSTRUMENT_LEADING_PREFIXES:
+        p = prefix.lower()
+        if folded.startswith(p):
+            rest = folded[len(p):]
+            if rest[:1].isspace():
+                folded = rest.lstrip()
+                break
     # Strip trailing common suffixes once to make "707炉" match "707".
     for suffix in ("炉", "箱", "机", "仪"):
         if folded.endswith(suffix):
@@ -111,6 +141,12 @@ class ExperimentOrchestrator:
             return []
         settings = get_settings()
         max_workers = max(1, int(settings.vlm_concurrency or 1))
+        if settings.context_hint_enabled:
+            # Context threading requires a deterministic previous page; concurrency
+            # would destroy that ordering. Force sequential when the user opts into
+            # context hints so the flag has the intended effect even under default
+            # vlm_concurrency > 1.
+            max_workers = 1
 
         def _analyze(path, prev_tail):
             fn = self.document_processor.analyze_pages
@@ -201,6 +237,16 @@ class ExperimentOrchestrator:
             catalog_items = (
                 (page.raw_model_output or {}).get("json", {}).get("instruments_catalog") or []
             )
+            # Fallback: legacy prompt path may only emit the flat `instruments: [str]`
+            # list (surfaced as page.extracted_instruments). Mirror the materials-side
+            # fallback so the catalog isn't empty on those pages. We can't infer the
+            # technique from a bare string, so default to "other".
+            if not catalog_items and page.extracted_instruments:
+                catalog_items = [
+                    {"technique": "other", "instrument_label": s.strip(), "aliases": []}
+                    for s in page.extracted_instruments
+                    if s and s.strip()
+                ]
             for raw in catalog_items:
                 if not isinstance(raw, dict):
                     continue
@@ -239,7 +285,42 @@ class ExperimentOrchestrator:
                         existing.aliases = list(
                             dict.fromkeys([*existing.aliases, *incoming])
                         )
-        return list(seen.values())
+        # Substring-containment post-pass: a short label like "707" should fold
+        # into a longer one like "管式炉 707" (which normalizes to "707" only if
+        # the leading-prefix strip applies — but on other catalog entries the
+        # prefix may not be in our list, so containment is the safety net).
+        # Keep the longer label as canonical; the shorter form becomes an alias.
+        items = list(seen.values())
+        merged_ids: set[str] = set()
+        # Precompute normalized forms once.
+        normed = [
+            (ins, _norm_instrument_token(ins.instrument_label) if ins.instrument_label else "")
+            for ins in items
+        ]
+        for i, (a, a_norm) in enumerate(normed):
+            if a.instrument_id in merged_ids or not a_norm or len(a_norm) < 2:
+                continue
+            for j, (b, b_norm) in enumerate(normed):
+                if i == j or b.instrument_id in merged_ids or not b_norm:
+                    continue
+                if a.technique != b.technique:
+                    continue
+                if a_norm == b_norm:
+                    continue  # exact match already handled by `seen` keying
+                # a contained in b → fold a into b (b is the longer/canonical).
+                if a_norm in b_norm and len(b_norm) > len(a_norm):
+                    extras: list[str] = []
+                    if a.instrument_label and a.instrument_label != b.instrument_label \
+                            and a.instrument_label != b.model:
+                        extras.append(str(a.instrument_label))
+                    if a.model and a.model != b.model and a.model != b.instrument_label:
+                        extras.append(str(a.model))
+                    extras.extend(str(x) for x in a.aliases if x)
+                    if extras:
+                        b.aliases = list(dict.fromkeys([*b.aliases, *extras]))
+                    merged_ids.add(a.instrument_id)
+                    break
+        return [ins for ins in items if ins.instrument_id not in merged_ids]
 
     @staticmethod
     def _norm_sample_label(label: str) -> str:

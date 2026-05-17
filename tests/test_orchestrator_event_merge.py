@@ -3,7 +3,10 @@ from sci_data_logger.schemas import (
     DraftExperimentRequest,
     PagePacket,
 )
-from sci_data_logger.services.orchestrator import ExperimentOrchestrator
+from sci_data_logger.services.orchestrator import (
+    ExperimentOrchestrator,
+    _norm_instrument_token,
+)
 
 
 class _FakeDocumentProcessor:
@@ -505,6 +508,74 @@ def test_resolve_events_links_sample_via_local_ref(tmp_path):
     assert len(record.samples_catalog) == 1
     smp = record.samples_catalog[0]
     assert record.events[0].sample_ref == smp.sample_id
+
+
+def test_instrument_normalize_strips_leading_prefix():
+    """`管式炉 707` and bare `707` should normalize to the same token."""
+    assert _norm_instrument_token("管式炉 707") == _norm_instrument_token("707")
+    assert _norm_instrument_token("管式炉 707") != ""
+    # Leading prefix without separating whitespace must NOT be stripped — we
+    # don't want to accidentally chop "管式炉" out of a label like "管式炉707"
+    # where the prefix and the id are glued together (the suffix loop handles
+    # that legacy form instead).
+    assert _norm_instrument_token("球磨707") != _norm_instrument_token("707")
+
+
+def test_merge_instruments_catalog_substring_containment(tmp_path):
+    """`707` and `管式炉 707` should collapse to one entry with the longer as canonical."""
+    page1 = PagePacket(source_path="p1.jpg")
+    page1.raw_model_output = {"json": {"instruments_catalog": [
+        {"technique": "tube_furnace", "instrument_label": "707"},
+    ]}}
+    page2 = PagePacket(source_path="p2.jpg")
+    page2.raw_model_output = {"json": {"instruments_catalog": [
+        {"technique": "tube_furnace", "instrument_label": "管式炉 707"},
+    ]}}
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    img2 = tmp_path / "p2.jpg"
+    img2.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page1, page2]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-INSTR-CONTAIN", image_paths=[img1, img2],
+    ))
+    assert len(record.instruments_catalog) == 1
+    ins = record.instruments_catalog[0]
+    # Either: prefix-strip normalized them to equal forms (then key dedup wins
+    # and canonical is whichever came first, i.e. "707"); or the substring
+    # post-pass kept "管式炉 707" as canonical with "707" alias. Both are
+    # acceptable — what matters is that nothing is lost.
+    labels = {ins.instrument_label, *ins.aliases}
+    assert "707" in labels
+    assert "管式炉 707" in labels
+
+
+def test_merge_instruments_catalog_falls_back_to_extracted_instruments_when_catalog_missing(
+    tmp_path,
+):
+    """Legacy prompt path: only `extracted_instruments` set, no `instruments_catalog`."""
+    page = PagePacket(
+        source_path="p1.jpg", extracted_instruments=["707炉", "806炉"]
+    )
+    # Explicitly no instruments_catalog in raw_model_output.
+    page.raw_model_output = {"json": {}}
+
+    img = tmp_path / "p1.jpg"
+    img.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page]),
+    )
+    record = orch.create_draft(DraftExperimentRequest(
+        experiment_id="EXP-INSTR-FALLBACK", image_paths=[img],
+    ))
+    assert len(record.instruments_catalog) == 2
+    for ins in record.instruments_catalog:
+        assert ins.technique == "other"
+    labels = sorted(ins.instrument_label for ins in record.instruments_catalog)
+    assert labels == ["707炉", "806炉"]
 
 
 def test_orchestrator_falls_back_to_page_sample_id_when_catalog_missing(tmp_path):
