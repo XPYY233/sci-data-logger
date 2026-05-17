@@ -129,6 +129,19 @@ def test_experiment_event_defaults_and_required():
     assert full.outputs[0].failure_marker == "X"
 
 
+def test_experiment_event_derived_from_and_produces_for_default_empty():
+    from sci_data_logger.schemas import ExperimentEvent
+
+    e = ExperimentEvent(
+        sequence_index=1,
+        action_type="mill",
+        description="球磨",
+        page_ref="page_xxx",
+    )
+    assert e.derived_from == []
+    assert e.produces_for == []
+
+
 def test_page_packet_new_extracted_fields_default_empty():
     from sci_data_logger.schemas import PagePacket
 

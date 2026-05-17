@@ -165,6 +165,15 @@ class ExperimentEvent(BaseModel):
     evidence_refs: list[EvidenceRef] = Field(default_factory=list)
     confidence: float | None = Field(default=None, ge=0, le=1)
 
+    derived_from: list[str] = Field(
+        default_factory=list,
+        description="event_id references this event consumes outputs from",
+    )
+    produces_for: list[str] = Field(
+        default_factory=list,
+        description="event_id references that consume this event's outputs",
+    )
+
 
 class MeasurementPacket(BaseModel):
     run_id: str = Field(default_factory=lambda: new_id("run"))

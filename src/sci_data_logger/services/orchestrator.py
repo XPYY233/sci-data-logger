@@ -524,6 +524,10 @@ class ExperimentOrchestrator:
         final = self._reconcile_stub_materials(
             final, materials_catalog, stub_ids, _norm
         )
+
+        # Link event causal chains (derived_from / produces_for) based on
+        # material flow between events.
+        final = self._link_event_chains(final)
         return final, issues
 
     @classmethod
@@ -632,6 +636,48 @@ class ExperimentOrchestrator:
                 "outputs": new_outputs,
             }))
         return rewritten
+
+    @staticmethod
+    def _link_event_chains(events: list[ExperimentEvent]) -> list[ExperimentEvent]:
+        """Populate explicit causal chain edges (`derived_from` / `produces_for`).
+
+        For each event E, look at its `inputs`. Any earlier event (by
+        sequence_index) that lists the same material in its `outputs` is a
+        producer — E.derived_from collects those producer event_ids, and the
+        producer's `produces_for` reverse-index collects E.event_id.
+
+        Acyclicity is guaranteed by the `prod_seq < e.sequence_index` filter:
+        an event can only depend on strictly earlier events.
+        """
+        producers: dict[str, list[tuple[int, str]]] = {}
+        for e in events:
+            for o in e.outputs:
+                producers.setdefault(o.material_ref, []).append(
+                    (e.sequence_index, e.event_id)
+                )
+
+        derived: dict[str, list[str]] = {}
+        produces_for_map: dict[str, list[str]] = {}
+        for e in events:
+            for io in e.inputs:
+                for prod_seq, prod_eid in producers.get(io.material_ref, []):
+                    if prod_seq < e.sequence_index:
+                        derived.setdefault(e.event_id, []).append(prod_eid)
+                        produces_for_map.setdefault(prod_eid, []).append(e.event_id)
+
+        return [
+            e.model_copy(
+                update={
+                    "derived_from": list(
+                        dict.fromkeys(derived.get(e.event_id, []))
+                    ),
+                    "produces_for": list(
+                        dict.fromkeys(produces_for_map.get(e.event_id, []))
+                    ),
+                }
+            )
+            for e in events
+        ]
 
     @staticmethod
     def _basic_review(record: ExperimentRecord) -> list[ReviewIssue]:
