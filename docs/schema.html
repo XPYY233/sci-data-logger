@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>sci_data_logger schema</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    margin: 0;
+    background: #fafafa;
+    color: #222;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #ddd; }
+    .sidebar { background: #222; border-right: 1px solid #333; }
+    .sidebar a { color: #88c0d0; }
+    table { background: #2a2a2a; }
+    th, td { border-color: #444; }
+    th { background: #333; }
+    code { background: #333; color: #f0c0a0; }
+    a.ref { background: #2a4a5a; color: #88c0d0; }
+    .docstring { color: #999; }
+    h2 { border-bottom: 2px solid #4a90d9; }
+    .mermaid-wrap { background: #2a2a2a; }
+  }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 240px; flex: none;
+    background: #fff;
+    border-right: 1px solid #ddd;
+    padding: 16px;
+    overflow-y: auto;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .sidebar h1 { font-size: 14px; margin: 0 0 12px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+  .sidebar ul { list-style: none; padding: 0; margin: 0 0 16px; }
+  .sidebar li a { display: block; padding: 4px 6px; font-size: 13px; text-decoration: none; color: #2a6ed6; border-radius: 3px; }
+  .sidebar li a:hover { background: rgba(42,110,214,0.1); }
+  main { flex: 1; padding: 24px 32px; max-width: 1100px; }
+  h1.title { font-size: 26px; margin-top: 0; }
+  h2 { font-size: 20px; margin-top: 32px; padding-bottom: 4px; border-bottom: 2px solid #4a90d9; }
+  .mermaid-wrap {
+    background: #fff; border-radius: 6px; padding: 16px;
+    border: 1px solid #ddd; overflow-x: auto; margin-bottom: 32px;
+  }
+  table {
+    border-collapse: collapse; width: 100%; background: #fff;
+    font-size: 13px; margin-bottom: 8px;
+  }
+  th, td { border: 1px solid #e0e0e0; padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: #f0f4f8; font-weight: 600; }
+  td.fname { width: 22%; }
+  td.ftype { width: 30%; }
+  td.fdefault { width: 18%; }
+  td.fdesc { width: 30%; color: #555; }
+  code {
+    background: #f0f0f0; padding: 1px 4px; border-radius: 3px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+  }
+  a.ref {
+    display: inline-block; margin-left: 4px; padding: 0 4px;
+    background: #e8f1fd; color: #2a6ed6; border-radius: 3px;
+    text-decoration: none; font-size: 11px;
+  }
+  a.ref:hover { background: #c8e0fd; }
+  .docstring { color: #666; font-size: 13px; font-style: italic; }
+  .meta { color: #888; font-size: 12px; margin-bottom: 24px; }
+  .enum ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .enum li { background: #fff7ed; padding: 4px 8px; border-radius: 3px; border: 1px solid #fed7aa; }
+  section { margin-bottom: 28px; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h1>Models</h1>
+    <ul><li><a href="#ExperimentRecord">ExperimentRecord</a></li>
+<li><a href="#ExperimentSummary">ExperimentSummary</a></li>
+<li><a href="#ExperimentEvent">ExperimentEvent</a></li>
+<li><a href="#PagePacket">PagePacket</a></li>
+<li><a href="#MeasurementPacket">MeasurementPacket</a></li>
+<li><a href="#Material">Material</a></li>
+<li><a href="#Instrument">Instrument</a></li>
+<li><a href="#Sample">Sample</a></li>
+<li><a href="#MaterialInput">MaterialInput</a></li>
+<li><a href="#InstrumentProfile">InstrumentProfile</a></li>
+<li><a href="#ProtocolStep">ProtocolStep</a></li>
+<li><a href="#EventIO">EventIO</a></li>
+<li><a href="#EventOutput">EventOutput</a></li>
+<li><a href="#FieldValue">FieldValue</a></li>
+<li><a href="#EvidenceRef">EvidenceRef</a></li>
+<li><a href="#DataAsset">DataAsset</a></li>
+<li><a href="#ReviewIssue">ReviewIssue</a></li>
+<li><a href="#DraftExperimentRequest">DraftExperimentRequest</a></li>
+<li><a href="#DraftExperimentMetadataRequest">DraftExperimentMetadataRequest</a></li></ul>
+    <h1>Enums</h1>
+    <ul><li><a href="#ReviewStatus">ReviewStatus</a></li><li><a href="#SourceType">SourceType</a></li></ul>
+    <h1>Sections</h1>
+    <ul><li><a href="#graph">Relationship graph</a></li></ul>
+  </aside>
+  <main>
+    <h1 class="title">sci_data_logger · schema</h1>
+    <p class="meta">Generated 2026-05-17 02:13 UTC · 19 models · 2 enums · auto-generated from <code>sci_data_logger.schemas</code></p>
+
+    <section id="graph">
+      <h2>Relationship graph</h2>
+      <div class="mermaid-wrap"><pre class="mermaid">flowchart LR
+  DataAsset[DataAsset]
+  EventIO[EventIO]
+  EventOutput[EventOutput]
+  EvidenceRef[EvidenceRef]
+  ExperimentEvent[ExperimentEvent]
+  ExperimentRecord[ExperimentRecord]
+  FieldValue[FieldValue]
+  Instrument[Instrument]
+  Material[Material]
+  MaterialInput[MaterialInput]
+  MeasurementPacket[MeasurementPacket]
+  PagePacket[PagePacket]
+  ProtocolStep[ProtocolStep]
+  ReviewIssue[ReviewIssue]
+  Sample[Sample]
+  EventIO -- amount --> FieldValue
+  EventOutput -- amount --> FieldValue
+  ExperimentEvent -- inputs --> EventIO
+  ExperimentEvent -- outputs --> EventOutput
+  ExperimentEvent -- evidence_refs --> EvidenceRef
+  ExperimentEvent -- observations --> FieldValue
+  ExperimentEvent -- parameters --> FieldValue
+  ExperimentRecord -- source_assets --> DataAsset
+  ExperimentRecord -- events --> ExperimentEvent
+  ExperimentRecord -- instruments_catalog --> Instrument
+  ExperimentRecord -- materials_catalog --> Material
+  ExperimentRecord -- measurements --> MeasurementPacket
+  ExperimentRecord -- pages --> PagePacket
+  ExperimentRecord -- review_issues --> ReviewIssue
+  ExperimentRecord -- samples_catalog --> Sample
+  FieldValue -- source_refs --> EvidenceRef
+  MaterialInput -- amount --> FieldValue
+  MeasurementPacket -- assets --> DataAsset
+  MeasurementPacket -- normalized_parameters --> FieldValue
+  PagePacket -- evidence_refs --> EvidenceRef
+  PagePacket -- extracted_events --> ExperimentEvent
+  PagePacket -- extracted_facts --> FieldValue
+  PagePacket -- extracted_observations --> FieldValue
+  PagePacket -- extracted_materials --> MaterialInput
+  PagePacket -- extracted_steps --> ProtocolStep
+  ProtocolStep -- evidence_refs --> EvidenceRef
+  ProtocolStep -- parameters --> FieldValue
+  ReviewIssue -- evidence_refs --> EvidenceRef</pre></div>
+    </section>
+
+    
+    <section id="ExperimentRecord" class="model">
+      <h2>ExperimentRecord</h2>
+      <p class="docstring">Experiment draft. V0: keeps materials/steps/observations as derived properties for backward compat.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>experiment_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>project_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>group_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>title</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>status</code></td><td class='ftype'><code>ReviewStatus</code></td><td class='fdefault'><code>&lt;ReviewStatus.DRAFT: &#x27;draft&#x27;&gt;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>materials_catalog</code></td><td class='ftype'><code>list[Material]</code><a class="ref" href="#Material">Material</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>instruments_catalog</code></td><td class='ftype'><code>list[Instrument]</code><a class="ref" href="#Instrument">Instrument</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>samples_catalog</code></td><td class='ftype'><code>list[Sample]</code><a class="ref" href="#Sample">Sample</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>events</code></td><td class='ftype'><code>list[ExperimentEvent]</code><a class="ref" href="#ExperimentEvent">ExperimentEvent</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>source_assets</code></td><td class='ftype'><code>list[DataAsset]</code><a class="ref" href="#DataAsset">DataAsset</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>pages</code></td><td class='ftype'><code>list[PagePacket]</code><a class="ref" href="#PagePacket">PagePacket</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>measurements</code></td><td class='ftype'><code>list[MeasurementPacket]</code><a class="ref" href="#MeasurementPacket">MeasurementPacket</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>review_issues</code></td><td class='ftype'><code>list[ReviewIssue]</code><a class="ref" href="#ReviewIssue">ReviewIssue</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="ExperimentSummary" class="model">
+      <h2>ExperimentSummary</h2>
+      <p class="docstring">Lightweight row used by GET /experiments list endpoint.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>experiment_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>project_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>group_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>title</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>status</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>created_at</code></td><td class='ftype'><code>datetime</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>updated_at</code></td><td class='ftype'><code>datetime</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="ExperimentEvent" class="model">
+      <h2>ExperimentEvent</h2>
+      <p class="docstring">Atomic unit of the experiment timeline.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>event_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;evt_bf2e34c68f2a&#x27;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>sequence_index</code></td><td class='ftype'><code>int</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>date_label</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>date_iso</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>location</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>instrument_ref</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>sample_ref</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>action_type</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>description</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>inputs</code></td><td class='ftype'><code>list[EventIO]</code><a class="ref" href="#EventIO">EventIO</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>outputs</code></td><td class='ftype'><code>list[EventOutput]</code><a class="ref" href="#EventOutput">EventOutput</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>parameters</code></td><td class='ftype'><code>dict[str, FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>recipe_ratio</code></td><td class='ftype'><code>UnionType[dict[str, Any], None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>equation</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>observations</code></td><td class='ftype'><code>list[FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>page_ref</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>evidence_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>confidence</code></td><td class='ftype'><code>UnionType[float, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>derived_from</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'>event_id references this event consumes outputs from</td></tr>
+<tr><td class='fname'><code>produces_for</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'>event_id references that consume this event&#x27;s outputs</td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="PagePacket" class="model">
+      <h2>PagePacket</h2>
+      <p class="docstring">!!! abstract &quot;Usage Documentation&quot;
+    [Models](../concepts/models.md)
+
+A base class for creating Pydantic models.
+
+Attributes:
+    __class_vars__: The names of the class variables defined on the model.
+    __private_attributes__: Metadata about the private attributes of the model.
+    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
+
+    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
+    __pydantic_core_schema__: The core schema of the model.
+    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
+    __pydantic_decorators__: Metadata containing the decorators defined on the model.
+        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
+    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
+        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
+    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
+    __pydantic_post_init__: The name of the post-init method for the model, if defined.
+    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
+    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
+    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
+
+    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
+    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
+
+    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
+        is set to `&#x27;allow&#x27;`.
+    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
+    __pydantic_private__: Values of private attributes set on the model instance.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>page_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;page_a51618766b06&#x27;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>source_path</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>page_types</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → [&#x27;unknown&#x27;]</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>page_number_hint</code></td><td class='ftype'><code>UnionType[int, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>captured_at</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>sample_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_samples</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>text_blocks</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>table_blocks</code></td><td class='ftype'><code>list[dict[str, Any]]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_materials</code></td><td class='ftype'><code>list[MaterialInput]</code><a class="ref" href="#MaterialInput">MaterialInput</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_steps</code></td><td class='ftype'><code>list[ProtocolStep]</code><a class="ref" href="#ProtocolStep">ProtocolStep</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_observations</code></td><td class='ftype'><code>list[FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_instruments</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_facts</code></td><td class='ftype'><code>dict[str, FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>open_questions</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>warnings</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>review_required</code></td><td class='ftype'><code>bool</code></td><td class='fdefault'><code>False</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>evidence_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_dates</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_locations</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_batches</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_equations</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_target_phases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_failure_markers</code></td><td class='ftype'><code>list[dict[str, Any]]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_recipe_ratios</code></td><td class='ftype'><code>list[dict[str, Any]]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_events</code></td><td class='ftype'><code>list[ExperimentEvent]</code><a class="ref" href="#ExperimentEvent">ExperimentEvent</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>raw_model_output</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="MeasurementPacket" class="model">
+      <h2>MeasurementPacket</h2>
+      <p class="docstring">!!! abstract &quot;Usage Documentation&quot;
+    [Models](../concepts/models.md)
+
+A base class for creating Pydantic models.
+
+Attributes:
+    __class_vars__: The names of the class variables defined on the model.
+    __private_attributes__: Metadata about the private attributes of the model.
+    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
+
+    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
+    __pydantic_core_schema__: The core schema of the model.
+    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
+    __pydantic_decorators__: Metadata containing the decorators defined on the model.
+        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
+    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
+        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
+    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
+    __pydantic_post_init__: The name of the post-init method for the model, if defined.
+    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
+    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
+    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
+
+    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
+    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
+
+    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
+        is set to `&#x27;allow&#x27;`.
+    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
+    __pydantic_private__: Values of private attributes set on the model instance.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>run_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;run_50fa8c6a8563&#x27;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>source_path</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>technique</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>instrument_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>raw_parameters</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>normalized_parameters</code></td><td class='ftype'><code>dict[str, FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>assets</code></td><td class='ftype'><code>list[DataAsset]</code><a class="ref" href="#DataAsset">DataAsset</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>warnings</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="Material" class="model">
+      <h2>Material</h2>
+      <p class="docstring">Catalog-level material entry, deduplicated across pages.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>material_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;mat_b410181327cb&#x27;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>canonical_name</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>display_name</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>aliases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>chemical_formula</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>roles</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="Instrument" class="model">
+      <h2>Instrument</h2>
+      <p class="docstring">Catalog-level instrument entry. `instrument_label` 例如实验室内的红圈编号 &#x27;707&#x27;。</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>instrument_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;instr_fb36561f8fe9&#x27;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>technique</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>instrument_label</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>location</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>manufacturer</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>model</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>aliases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="Sample" class="model">
+      <h2>Sample</h2>
+      <p class="docstring">Catalog-level sample entry, deduplicated across pages.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>sample_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;sample_fa84b7341824&#x27;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>canonical_label</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>display_label</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>aliases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>target_material_ref</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>batch</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="MaterialInput" class="model">
+      <h2>MaterialInput</h2>
+      <p class="docstring">!!! abstract &quot;Usage Documentation&quot;
+    [Models](../concepts/models.md)
+
+A base class for creating Pydantic models.
+
+Attributes:
+    __class_vars__: The names of the class variables defined on the model.
+    __private_attributes__: Metadata about the private attributes of the model.
+    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
+
+    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
+    __pydantic_core_schema__: The core schema of the model.
+    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
+    __pydantic_decorators__: Metadata containing the decorators defined on the model.
+        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
+    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
+        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
+    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
+    __pydantic_post_init__: The name of the post-init method for the model, if defined.
+    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
+    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
+    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
+
+    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
+    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
+
+    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
+        is set to `&#x27;allow&#x27;`.
+    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
+    __pydantic_private__: Values of private attributes set on the model instance.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>material_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;mat_adb8ad16e1d5&#x27;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>name</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>amount</code></td><td class='ftype'><code>UnionType[FieldValue, None]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>role</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="InstrumentProfile" class="model">
+      <h2>InstrumentProfile</h2>
+      <p class="docstring">!!! abstract &quot;Usage Documentation&quot;
+    [Models](../concepts/models.md)
+
+A base class for creating Pydantic models.
+
+Attributes:
+    __class_vars__: The names of the class variables defined on the model.
+    __private_attributes__: Metadata about the private attributes of the model.
+    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
+
+    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
+    __pydantic_core_schema__: The core schema of the model.
+    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
+    __pydantic_decorators__: Metadata containing the decorators defined on the model.
+        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
+    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
+        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
+    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
+    __pydantic_post_init__: The name of the post-init method for the model, if defined.
+    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
+    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
+    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
+
+    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
+    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
+
+    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
+        is set to `&#x27;allow&#x27;`.
+    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
+    __pydantic_private__: Values of private attributes set on the model instance.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>instrument_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>display_name</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>technique</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>manufacturer</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>model</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>aliases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>file_patterns</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>parser_plugin</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>&#x27;generic_text_report&#x27;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>field_mappings</code></td><td class='ftype'><code>dict[str, str]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>defaults</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="ProtocolStep" class="model">
+      <h2>ProtocolStep</h2>
+      <p class="docstring">!!! abstract &quot;Usage Documentation&quot;
+    [Models](../concepts/models.md)
+
+A base class for creating Pydantic models.
+
+Attributes:
+    __class_vars__: The names of the class variables defined on the model.
+    __private_attributes__: Metadata about the private attributes of the model.
+    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
+
+    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
+    __pydantic_core_schema__: The core schema of the model.
+    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
+    __pydantic_decorators__: Metadata containing the decorators defined on the model.
+        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
+    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
+        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
+    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
+    __pydantic_post_init__: The name of the post-init method for the model, if defined.
+    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
+    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
+    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
+
+    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
+    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
+
+    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
+        is set to `&#x27;allow&#x27;`.
+    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
+    __pydantic_private__: Values of private attributes set on the model instance.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>step_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;step_90a1641ed4c0&#x27;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>step_type</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>sequence_index</code></td><td class='ftype'><code>int</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>description</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>inputs</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>outputs</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>parameters</code></td><td class='ftype'><code>dict[str, FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>evidence_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>confidence</code></td><td class='ftype'><code>UnionType[float, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="EventIO" class="model">
+      <h2>EventIO</h2>
+      <p class="docstring">Event input/output edge — references a Material by id, optionally with amount.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>material_ref</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>amount</code></td><td class='ftype'><code>UnionType[FieldValue, None]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>notes</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="EventOutput" class="model">
+      <h2>EventOutput</h2>
+      <p class="docstring">Output edge with additional product-level fields.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>material_ref</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>amount</code></td><td class='ftype'><code>UnionType[FieldValue, None]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>notes</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>target_phase</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>failure_marker</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="FieldValue" class="model">
+      <h2>FieldValue</h2>
+      <p class="docstring">!!! abstract &quot;Usage Documentation&quot;
+    [Models](../concepts/models.md)
+
+A base class for creating Pydantic models.
+
+Attributes:
+    __class_vars__: The names of the class variables defined on the model.
+    __private_attributes__: Metadata about the private attributes of the model.
+    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
+
+    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
+    __pydantic_core_schema__: The core schema of the model.
+    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
+    __pydantic_decorators__: Metadata containing the decorators defined on the model.
+        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
+    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
+        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
+    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
+    __pydantic_post_init__: The name of the post-init method for the model, if defined.
+    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
+    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
+    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
+
+    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
+    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
+
+    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
+        is set to `&#x27;allow&#x27;`.
+    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
+    __pydantic_private__: Values of private attributes set on the model instance.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>value</code></td><td class='ftype'><code>Any</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>unit</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>source_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>confidence</code></td><td class='ftype'><code>UnionType[float, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>reviewed</code></td><td class='ftype'><code>bool</code></td><td class='fdefault'><code>False</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="EvidenceRef" class="model">
+      <h2>EvidenceRef</h2>
+      <p class="docstring">!!! abstract &quot;Usage Documentation&quot;
+    [Models](../concepts/models.md)
+
+A base class for creating Pydantic models.
+
+Attributes:
+    __class_vars__: The names of the class variables defined on the model.
+    __private_attributes__: Metadata about the private attributes of the model.
+    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
+
+    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
+    __pydantic_core_schema__: The core schema of the model.
+    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
+    __pydantic_decorators__: Metadata containing the decorators defined on the model.
+        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
+    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
+        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
+    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
+    __pydantic_post_init__: The name of the post-init method for the model, if defined.
+    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
+    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
+    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
+
+    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
+    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
+
+    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
+        is set to `&#x27;allow&#x27;`.
+    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
+    __pydantic_private__: Values of private attributes set on the model instance.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>source_type</code></td><td class='ftype'><code>SourceType</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>source_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>locator</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>text</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>confidence</code></td><td class='ftype'><code>UnionType[float, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="DataAsset" class="model">
+      <h2>DataAsset</h2>
+      <p class="docstring">!!! abstract &quot;Usage Documentation&quot;
+    [Models](../concepts/models.md)
+
+A base class for creating Pydantic models.
+
+Attributes:
+    __class_vars__: The names of the class variables defined on the model.
+    __private_attributes__: Metadata about the private attributes of the model.
+    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
+
+    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
+    __pydantic_core_schema__: The core schema of the model.
+    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
+    __pydantic_decorators__: Metadata containing the decorators defined on the model.
+        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
+    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
+        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
+    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
+    __pydantic_post_init__: The name of the post-init method for the model, if defined.
+    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
+    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
+    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
+
+    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
+    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
+
+    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
+        is set to `&#x27;allow&#x27;`.
+    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
+    __pydantic_private__: Values of private attributes set on the model instance.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>asset_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;asset_31281fa59d0c&#x27;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>source_path</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>source_type</code></td><td class='ftype'><code>SourceType</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>media_type</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>checksum</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="ReviewIssue" class="model">
+      <h2>ReviewIssue</h2>
+      <p class="docstring">!!! abstract &quot;Usage Documentation&quot;
+    [Models](../concepts/models.md)
+
+A base class for creating Pydantic models.
+
+Attributes:
+    __class_vars__: The names of the class variables defined on the model.
+    __private_attributes__: Metadata about the private attributes of the model.
+    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
+
+    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
+    __pydantic_core_schema__: The core schema of the model.
+    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
+    __pydantic_decorators__: Metadata containing the decorators defined on the model.
+        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
+    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
+        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
+    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
+    __pydantic_post_init__: The name of the post-init method for the model, if defined.
+    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
+    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
+    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
+
+    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
+    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
+
+    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
+        is set to `&#x27;allow&#x27;`.
+    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
+    __pydantic_private__: Values of private attributes set on the model instance.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>issue_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;issue_2b91220381df&#x27;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>severity</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>&#x27;warning&#x27;</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>title</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>detail</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>evidence_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="DraftExperimentRequest" class="model">
+      <h2>DraftExperimentRequest</h2>
+      <p class="docstring">!!! abstract &quot;Usage Documentation&quot;
+    [Models](../concepts/models.md)
+
+A base class for creating Pydantic models.
+
+Attributes:
+    __class_vars__: The names of the class variables defined on the model.
+    __private_attributes__: Metadata about the private attributes of the model.
+    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
+
+    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
+    __pydantic_core_schema__: The core schema of the model.
+    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
+    __pydantic_decorators__: Metadata containing the decorators defined on the model.
+        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
+    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
+        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
+    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
+    __pydantic_post_init__: The name of the post-init method for the model, if defined.
+    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
+    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
+    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
+
+    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
+    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
+
+    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
+        is set to `&#x27;allow&#x27;`.
+    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
+    __pydantic_private__: Values of private attributes set on the model instance.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>experiment_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>image_paths</code></td><td class='ftype'><code>list[Path]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>instrument_file_paths</code></td><td class='ftype'><code>list[Path]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>user_fields</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>project_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>group_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>title</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+
+    <section id="DraftExperimentMetadataRequest" class="model">
+      <h2>DraftExperimentMetadataRequest</h2>
+      <p class="docstring">API JSON draft request that intentionally excludes server-local file paths.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody><tr><td class='fname'><code>experiment_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>user_fields</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>project_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>group_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>title</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
+      </table>
+    </section>
+    
+    <section id="ReviewStatus" class="enum"><h2>ReviewStatus</h2><p class="docstring">Enum where members are also (and must be) strings</p><ul class="enum-values"><li><code>draft</code></li><li><code>needs_review</code></li><li><code>reviewed</code></li><li><code>locked</code></li></ul></section><section id="SourceType" class="enum"><h2>SourceType</h2><p class="docstring">Enum where members are also (and must be) strings</p><ul class="enum-values"><li><code>user_input</code></li><li><code>notebook_image</code></li><li><code>ocr_text</code></li><li><code>instrument_file</code></li><li><code>report_file</code></li><li><code>system_inference</code></li><li><code>manual_review</code></li></ul></section>
+  </main>
+</div>
+<script>mermaid.initialize({ startOnLoad: true, theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default' });</script>
+</body>
+</html>
