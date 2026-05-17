@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     qwen_max_retries: int = Field(default=3, alias="QWEN_MAX_RETRIES")
     qwen_retry_base_delay: float = Field(default=1.0, alias="QWEN_RETRY_BASE_DELAY")
     qwen_retry_max_delay: float = Field(default=20.0, alias="QWEN_RETRY_MAX_DELAY")
+    qwen_retry_max_total_seconds: float = Field(
+        default=60.0,
+        alias="QWEN_RETRY_MAX_TOTAL_SECONDS",
+    )
     vlm_concurrency: int = Field(
         default=4,
         alias="SCI_DATA_LOGGER_VLM_CONCURRENCY",

@@ -11,6 +11,7 @@ from tenacity import (
     Retrying,
     retry_if_exception_type,
     stop_after_attempt,
+    stop_after_delay,
     wait_random_exponential,
 )
 
@@ -72,8 +73,9 @@ class QwenVLMClient:
         Settings, so decorator-time evaluation would freeze the wrong values.
         """
         max_retries = max(1, int(self.settings.qwen_max_retries))
+        max_total_seconds = float(self.settings.qwen_retry_max_total_seconds)
         retryer = Retrying(
-            stop=stop_after_attempt(max_retries),
+            stop=stop_after_attempt(max_retries) | stop_after_delay(max_total_seconds),
             wait=wait_random_exponential(
                 multiplier=self.settings.qwen_retry_base_delay,
                 max=self.settings.qwen_retry_max_delay,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any
 
@@ -164,3 +165,40 @@ def test_vlm_gives_up_after_max_retries(
         client.analyze_image(image_path, "hi")
 
     assert fake.calls == settings.qwen_max_retries == 3
+
+
+def test_vlm_retry_gives_up_at_total_wallclock_cap(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A huge ``qwen_max_retries`` must still be bounded by the wallclock cap.
+
+    Under sustained 429/timeout storms, ``stop_after_attempt`` alone leaves a
+    single VLM call sleeping for minutes (max_retries × max_delay). We combine
+    it with ``stop_after_delay`` so the whole retry loop has a hard ceiling.
+    """
+    # 50 scripted timeouts is more than the cap can possibly burn through.
+    fake = _FakeOpenAIClient([_FakeTimeout() for _ in range(50)])
+    _patch_openai(monkeypatch, fake)
+    _stub_image_data_url(monkeypatch)
+
+    settings = Settings(
+        DASHSCOPE_API_KEY="sk-test",
+        QWEN_MAX_RETRIES=100,
+        QWEN_RETRY_BASE_DELAY=0.05,
+        QWEN_RETRY_MAX_DELAY=0.1,
+        QWEN_RETRY_MAX_TOTAL_SECONDS=0.3,
+    )
+    client = QwenVLMClient(settings=settings)
+    image_path = tmp_path / "stub.jpg"
+    image_path.write_bytes(b"\xff\xd8\xff\xd9")
+
+    start = time.monotonic()
+    with pytest.raises(openai.APITimeoutError):
+        client.analyze_image(image_path, "hi")
+    elapsed = time.monotonic() - start
+
+    # Hard ceiling: total time well under what max_retries=100 × 0.1s would burn.
+    # Generous slack accounts for retry bookkeeping overhead.
+    assert elapsed < 2.0, f"retry loop exceeded wallclock cap: {elapsed:.2f}s"
+    # And we definitely did not run all 100 attempts.
+    assert fake.calls < 50
