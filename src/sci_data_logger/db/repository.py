@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from sqlmodel import Session, select
 
 from sci_data_logger.db.models import ExperimentRecordORM
-from sci_data_logger.schemas import ExperimentRecord, ReviewStatus
+from sci_data_logger.schemas import ExperimentRecord, PagePacket, ReviewStatus
+
+if TYPE_CHECKING:  # pragma: no cover - circular at runtime
+    from sci_data_logger.services.orchestrator import ExperimentOrchestrator
+
+
+_TERMINAL_STATUSES = {ReviewStatus.REVIEWED, ReviewStatus.LOCKED}
 
 
 def _utcnow() -> datetime:
@@ -119,3 +126,87 @@ def resolve_review_issue(
     session.add(row)
     session.flush()
     return record
+
+
+def merge_record(
+    session: Session,
+    new_record: ExperimentRecord,
+    orchestrator: "ExperimentOrchestrator",
+) -> ExperimentRecordORM:
+    """Upsert with cross-page merge semantics.
+
+    If a row exists for new_record.experiment_id, concatenate pages /
+    measurements / source_assets with the existing record, then re-run
+    orchestrator's cross-page consolidation. Otherwise behave like save_record.
+
+    - review_issues: union by issue_id (new ones appended)
+    - metadata.user_fields: shallow merge, new wins on key conflict
+    - status: terminal statuses (REVIEWED / LOCKED) are preserved against
+      downgrades; otherwise the newer status wins
+    """
+    existing_row = session.get(ExperimentRecordORM, new_record.experiment_id)
+    if existing_row is None:
+        return save_record(session, new_record)
+
+    existing = ExperimentRecord.model_validate_json(existing_row.record_json)
+
+    combined_pages: list[PagePacket] = [*existing.pages, *new_record.pages]
+    combined_measurements = [*existing.measurements, *new_record.measurements]
+    combined_source_assets = [*existing.source_assets, *new_record.source_assets]
+
+    materials_catalog = orchestrator._merge_materials_catalog(combined_pages)
+    instruments_catalog = orchestrator._merge_instruments_catalog(combined_pages)
+    samples_catalog = orchestrator._merge_samples_catalog(combined_pages)
+    events, resolution_issues = orchestrator._resolve_and_merge_events(
+        combined_pages, materials_catalog, instruments_catalog, samples_catalog
+    )
+
+    # Union review_issues by issue_id; preserve existing order.
+    seen_issue_ids: set[str] = set()
+    merged_issues = []
+    for issue in [*existing.review_issues, *new_record.review_issues, *resolution_issues]:
+        if issue.issue_id in seen_issue_ids:
+            continue
+        seen_issue_ids.add(issue.issue_id)
+        merged_issues.append(issue)
+
+    existing_meta = dict(existing.metadata or {})
+    new_meta = dict(new_record.metadata or {})
+    merged_user_fields = {
+        **(existing_meta.get("user_fields") or {}),
+        **(new_meta.get("user_fields") or {}),
+    }
+    merged_metadata = {**existing_meta, **new_meta, "user_fields": merged_user_fields}
+
+    existing_status = ReviewStatus(existing.status) if not isinstance(existing.status, ReviewStatus) else existing.status
+    new_status = ReviewStatus(new_record.status) if not isinstance(new_record.status, ReviewStatus) else new_record.status
+    merged_status = existing_status if existing_status in _TERMINAL_STATUSES else new_status
+
+    merged_record = ExperimentRecord(
+        experiment_id=new_record.experiment_id,
+        project_id=new_record.project_id or existing.project_id,
+        group_id=new_record.group_id or existing.group_id,
+        operator=new_record.operator or existing.operator,
+        title=new_record.title or existing.title,
+        status=merged_status,
+        materials_catalog=materials_catalog,
+        instruments_catalog=instruments_catalog,
+        samples_catalog=samples_catalog,
+        events=events,
+        source_assets=combined_source_assets,
+        pages=combined_pages,
+        measurements=combined_measurements,
+        review_issues=merged_issues,
+        metadata=merged_metadata,
+    )
+
+    existing_row.project_id = merged_record.project_id
+    existing_row.group_id = merged_record.group_id
+    existing_row.operator = merged_record.operator
+    existing_row.title = merged_record.title
+    existing_row.status = str(merged_status)
+    existing_row.record_json = merged_record.model_dump_json()
+    existing_row.updated_at = _utcnow()
+    session.add(existing_row)
+    session.flush()
+    return existing_row

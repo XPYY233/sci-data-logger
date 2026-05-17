@@ -64,9 +64,11 @@ def create_experiment_draft(
         operator=request.operator,
         title=request.title,
     )
-    record = ExperimentOrchestrator().create_draft(draft_request)
-    repository.save_record(session, record)
-    return record
+    orchestrator = ExperimentOrchestrator()
+    record = orchestrator.create_draft(draft_request)
+    repository.merge_record(session, record, orchestrator)
+    session.flush()
+    return repository.get_record(session, record.experiment_id) or record
 
 
 @router.post("/experiments/draft/upload", response_model=ExperimentRecord)
@@ -99,9 +101,47 @@ def create_experiment_draft_from_uploads(
         operator=operator,
         title=title,
     )
-    record = ExperimentOrchestrator().create_draft(draft_request)
-    repository.save_record(session, record)
-    return record
+    orchestrator = ExperimentOrchestrator()
+    record = orchestrator.create_draft(draft_request)
+    repository.merge_record(session, record, orchestrator)
+    session.flush()
+    return repository.get_record(session, record.experiment_id) or record
+
+
+@router.post("/experiments/{experiment_id}/pages", response_model=ExperimentRecord)
+def append_pages_to_draft(
+    experiment_id: str,
+    images: Annotated[list[UploadFile] | None, File()] = None,
+    instrument_files: Annotated[list[UploadFile] | None, File()] = None,
+    session: Session = Depends(get_session),
+) -> ExperimentRecord:
+    """Append additional pages / instrument files to an existing draft.
+
+    Orchestrator re-runs cross-page consolidation against the merged page set.
+    404 if experiment_id does not exist.
+    """
+    existing = repository.get_record(session, experiment_id)
+    if existing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="experiment not found")
+
+    settings = get_settings()
+    image_paths = _save_uploads(images, settings, experiment_id, "images")
+    instrument_file_paths = _save_uploads(
+        instrument_files, settings, experiment_id, "instrument_files"
+    )
+    draft_request = DraftExperimentRequest(
+        experiment_id=experiment_id,
+        image_paths=image_paths,
+        instrument_file_paths=instrument_file_paths,
+        project_id=existing.project_id,
+        group_id=existing.group_id,
+        operator=existing.operator,
+        title=existing.title,
+    )
+    orchestrator = ExperimentOrchestrator()
+    delta = orchestrator.create_draft(draft_request)
+    repository.merge_record(session, delta, orchestrator)
+    return repository.get_record(session, experiment_id)
 
 
 @router.get("/experiments", response_model=list[ExperimentSummary])

@@ -27,8 +27,17 @@ def test_upload_draft_saves_files_under_storage_root(monkeypatch, tmp_path: Path
             captured["request"] = request
             return ExperimentRecord(experiment_id=request.experiment_id)
 
+        # merge_record may invoke these if a row pre-exists (cross-test pollution).
+        def _merge_materials_catalog(self, _pages): return []
+        def _merge_instruments_catalog(self, _pages): return []
+        def _merge_samples_catalog(self, _pages): return []
+        def _resolve_and_merge_events(self, *_args, **_kwargs): return ([], [])
+
     monkeypatch.setattr(routes, "get_settings", lambda: Settings(storage_root=tmp_path))
     monkeypatch.setattr(routes, "ExperimentOrchestrator", lambda: FakeOrchestrator())
+    # Isolate this test's SQLite engine from any sibling test's lru_cached one.
+    from sci_data_logger.db.session import reset_engine_cache
+    reset_engine_cache()
     client = TestClient(create_app())
 
     response = client.post(

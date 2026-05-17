@@ -171,3 +171,138 @@ def test_delete_experiment_returns_204_and_subsequent_get_is_404(app_with_temp_d
 
     second_delete = client.delete("/experiments/DEL-1")
     assert second_delete.status_code == 404
+
+
+# ----- Gap 1: incremental upload merge -----------------------------------
+
+def _stub_doc_processor_with_materials(monkeypatch, materials_by_filename: dict[str, str]):
+    """Stub DocumentProcessor.analyze_page so each uploaded file emits one
+    PagePacket declaring exactly one material (selected by filename suffix)."""
+    from sci_data_logger.schemas import PagePacket
+    from sci_data_logger.services import orchestrator as orch_module
+
+    def fake_analyze_page(self, image_path, prev_tail=None):
+        name = Path(image_path).name
+        material_name = None
+        for key, mat in materials_by_filename.items():
+            if name.endswith(key):
+                material_name = mat
+                break
+        if material_name is None:
+            material_name = f"AutoMat-{name}"
+        return PagePacket(
+            source_path=str(image_path),
+            page_types=["protocol"],
+            raw_model_output={
+                "json": {
+                    "materials_catalog": [
+                        {"canonical_name": material_name, "role": "reactant", "aliases": []}
+                    ],
+                    "instruments_catalog": [],
+                }
+            },
+        )
+
+    def fake_analyze_pages(self, image_path, prev_tail=None):
+        return [fake_analyze_page(self, image_path, prev_tail)]
+
+    monkeypatch.setattr(orch_module.DocumentProcessor, "analyze_page", fake_analyze_page)
+    monkeypatch.setattr(orch_module.DocumentProcessor, "analyze_pages", fake_analyze_pages)
+
+
+def _png_bytes() -> bytes:
+    return (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08"
+        b"\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc```\x00\x00\x00"
+        b"\x04\x00\x01\xa1G\xe9_\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+
+
+def test_repeat_upload_merges_pages_not_overwrites(monkeypatch, app_with_temp_db):
+    _stub_doc_processor_with_materials(
+        monkeypatch, {"first.png": "Material-A", "second.png": "Material-B"}
+    )
+    client = TestClient(app_with_temp_db)
+
+    r1 = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-INC"},
+        files=[("images", ("first.png", _png_bytes(), "image/png"))],
+    )
+    assert r1.status_code == 200, r1.text
+    assert len(r1.json()["pages"]) == 1
+
+    r2 = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-INC"},
+        files=[("images", ("second.png", _png_bytes(), "image/png"))],
+    )
+    assert r2.status_code == 200, r2.text
+    rec2 = r2.json()
+    assert len(rec2["pages"]) == 2
+    names = sorted(m["canonical_name"] for m in rec2["materials_catalog"])
+    assert names == ["Material-A", "Material-B"], names
+
+
+def test_append_pages_endpoint_returns_404_for_unknown_id(app_with_temp_db):
+    client = TestClient(app_with_temp_db)
+    resp = client.post(
+        "/experiments/DOES-NOT-EXIST/pages",
+        files=[("images", ("p.png", _png_bytes(), "image/png"))],
+    )
+    assert resp.status_code == 404
+
+
+def test_append_pages_endpoint_merges_into_existing_record(monkeypatch, app_with_temp_db):
+    _stub_doc_processor_with_materials(
+        monkeypatch, {"orig.png": "Material-O", "extra.png": "Material-X"}
+    )
+    client = TestClient(app_with_temp_db)
+
+    create = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-APP"},
+        files=[("images", ("orig.png", _png_bytes(), "image/png"))],
+    )
+    assert create.status_code == 200, create.text
+
+    append = client.post(
+        "/experiments/EXP-APP/pages",
+        files=[("images", ("extra.png", _png_bytes(), "image/png"))],
+    )
+    assert append.status_code == 200, append.text
+    rec = append.json()
+    assert len(rec["pages"]) == 2
+    catalog_names = sorted(m["canonical_name"] for m in rec["materials_catalog"])
+    assert catalog_names == ["Material-O", "Material-X"], catalog_names
+
+
+def test_merge_preserves_locked_status(monkeypatch, app_with_temp_db):
+    _stub_doc_processor_with_materials(
+        monkeypatch, {"a.png": "Mat-1", "b.png": "Mat-2"}
+    )
+    client = TestClient(app_with_temp_db)
+
+    r = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-LOCK"},
+        files=[("images", ("a.png", _png_bytes(), "image/png"))],
+    )
+    assert r.status_code == 200, r.text
+
+    patch = client.patch(
+        "/experiments/EXP-LOCK/status",
+        json={"status": ReviewStatus.LOCKED.value},
+    )
+    assert patch.status_code == 200, patch.text
+    assert patch.json()["status"] == ReviewStatus.LOCKED.value
+
+    merge = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-LOCK"},
+        files=[("images", ("b.png", _png_bytes(), "image/png"))],
+    )
+    assert merge.status_code == 200, merge.text
+    merged = merge.json()
+    assert merged["status"] == ReviewStatus.LOCKED.value
+    assert len(merged["pages"]) == 2
