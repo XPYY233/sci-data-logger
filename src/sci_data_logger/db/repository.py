@@ -36,10 +36,31 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _dump_record_for_db(record: ExperimentRecord) -> str:
+    """Serialize an ExperimentRecord to JSON for the experiments.record_json
+    column.
+
+    Honors SCI_DATA_LOGGER_DB_STRIP_RAW_MODEL_OUTPUT (default False): when set,
+    drops the per-page ``raw_model_output`` field before serializing. This
+    cuts row size dramatically when VLM responses are large; catalog/event
+    data is preserved because it's already mirrored into top-level structured
+    fields by the orchestrator.
+    """
+    # Avoid a hot import at module top — settings live in config.py which the
+    # ORM model doesn't depend on.
+    from sci_data_logger.config import get_settings
+
+    if not get_settings().db_strip_raw_model_output:
+        return record.model_dump_json()
+    return record.model_dump_json(
+        exclude={"pages": {"__all__": {"raw_model_output"}}}
+    )
+
+
 def save_record(session: Session, record: ExperimentRecord) -> ExperimentRecordORM:
     """Insert or update the experiment row. Returns the persisted ORM object."""
     existing = session.get(ExperimentRecordORM, record.experiment_id)
-    payload = record.model_dump_json()
+    payload = _dump_record_for_db(record)
     status_value = str(record.status)
     now = _utcnow()
     if existing is None:
@@ -125,7 +146,7 @@ def update_review_status(
             f"illegal status transition: {current.value} -> {new_status.value}"
         )
     record.status = new_status
-    row.record_json = record.model_dump_json()
+    row.record_json = _dump_record_for_db(record)
     row.status = str(new_status)
     row.updated_at = _utcnow()
     session.add(row)
@@ -146,7 +167,7 @@ def resolve_review_issue(
     record.review_issues = [i for i in record.review_issues if i.issue_id != issue_id]
     if len(record.review_issues) == before:
         return None
-    row.record_json = record.model_dump_json()
+    row.record_json = _dump_record_for_db(record)
     row.updated_at = _utcnow()
     session.add(row)
     session.flush()
@@ -214,7 +235,7 @@ def merge_record(
             ),
         )
         existing.review_issues.append(audit_issue)
-        existing_row.record_json = existing.model_dump_json()
+        existing_row.record_json = _dump_record_for_db(existing)
         existing_row.updated_at = _utcnow()
         session.add(existing_row)
         session.flush()
@@ -308,7 +329,7 @@ def merge_record(
     existing_row.operator = merged_record.operator
     existing_row.title = merged_record.title
     existing_row.status = str(merged_status)
-    existing_row.record_json = merged_record.model_dump_json()
+    existing_row.record_json = _dump_record_for_db(merged_record)
     existing_row.updated_at = _utcnow()
     session.add(existing_row)
     session.flush()

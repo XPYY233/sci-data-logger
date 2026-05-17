@@ -3,10 +3,27 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+
+
+# Bounded experiment-id type. Caps length at 128 chars and restricts to
+# filesystem/URL-safe characters so it can be used in storage paths and URL
+# segments without escaping. Pydantic enforces this on every model that types
+# a field as `ExperimentId`; FastAPI path params should also reuse the same
+# constraints via `Path(...)`.
+EXPERIMENT_ID_MAX_LENGTH = 128
+EXPERIMENT_ID_PATTERN = r"^[A-Za-z0-9._\-]+$"
+ExperimentId = Annotated[
+    str,
+    StringConstraints(
+        min_length=1,
+        max_length=EXPERIMENT_ID_MAX_LENGTH,
+        pattern=EXPERIMENT_ID_PATTERN,
+    ),
+]
 
 
 def new_id(prefix: str) -> str:
@@ -240,7 +257,7 @@ class ExperimentRecord(BaseModel):
     causal chains from ``record.events`` only.
     """
 
-    experiment_id: str
+    experiment_id: ExperimentId
     project_id: str | None = None
     group_id: str | None = None
     operator: str | None = None
@@ -315,7 +332,7 @@ class ExperimentRecord(BaseModel):
 class ExperimentSummary(BaseModel):
     """Lightweight row used by GET /experiments list endpoint."""
 
-    experiment_id: str
+    experiment_id: ExperimentId
     project_id: str | None = None
     group_id: str | None = None
     operator: str | None = None
@@ -326,7 +343,7 @@ class ExperimentSummary(BaseModel):
 
 
 class DraftExperimentRequest(BaseModel):
-    experiment_id: str
+    experiment_id: ExperimentId
     image_paths: list[Path] = Field(default_factory=list)
     instrument_file_paths: list[Path] = Field(default_factory=list)
     user_fields: dict[str, Any] = Field(default_factory=dict)
@@ -341,7 +358,7 @@ class DraftExperimentMetadataRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    experiment_id: str
+    experiment_id: ExperimentId
     user_fields: dict[str, Any] = Field(default_factory=dict)
     project_id: str | None = None
     group_id: str | None = None

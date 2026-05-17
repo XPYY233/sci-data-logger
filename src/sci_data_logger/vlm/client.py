@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import logging
 import mimetypes
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,42 @@ _RETRYABLE_EXC: tuple[type[BaseException], ...] = (
 )
 
 
+# Process-wide semaphore around the actual VLM HTTP call. Sized at module
+# import via the current Settings.vlm_global_concurrency; tests that change
+# the env var must call `_reset_global_semaphore()` to rebuild it. The
+# orchestrator's per-request ThreadPoolExecutor uses `vlm_concurrency`
+# workers each; multiplied across many FastAPI request threads they can
+# blow past DashScope quotas, so we gate at this single chokepoint.
+_global_semaphore: threading.BoundedSemaphore | None = None
+_global_semaphore_lock = threading.Lock()
+
+
+def _get_global_semaphore(settings: Settings) -> threading.BoundedSemaphore:
+    global _global_semaphore
+    if _global_semaphore is None:
+        with _global_semaphore_lock:
+            if _global_semaphore is None:
+                _global_semaphore = threading.BoundedSemaphore(
+                    max(1, int(settings.vlm_global_concurrency))
+                )
+    return _global_semaphore
+
+
+def _reset_global_semaphore() -> None:
+    """Test helper: drop the cached semaphore so the next call re-reads
+    Settings.vlm_global_concurrency. Production code should not call this."""
+    global _global_semaphore
+    with _global_semaphore_lock:
+        _global_semaphore = None
+
+
+class VLMGlobalConcurrencyTimeout(RuntimeError):
+    """Raised when a VLM dispatch couldn't acquire the global semaphore within
+    ``vlm_global_acquire_timeout`` seconds. Indicates sustained over-saturation
+    of the DashScope dispatch chokepoint — usually means too many concurrent
+    requests or too low a global cap for current load."""
+
+
 class QwenVLMClient:
     """Small wrapper around the Qwen OpenAI-compatible vision chat API."""
 
@@ -46,17 +83,33 @@ class QwenVLMClient:
 
         from openai import OpenAI
 
-        client = OpenAI(
-            api_key=self.settings.dashscope_api_key,
-            base_url=self.settings.qwen_base_url,
-            timeout=self.settings.qwen_request_timeout,
-        )
-        image_url = self._image_data_url(
-            image_path,
-            max_side=self.settings.qwen_image_max_side,
-            size_threshold=self.settings.qwen_image_downscale_threshold_bytes,
-        )
-        response = self._create_completion(client, image_url, prompt)
+        # Acquire the process-wide chokepoint BEFORE building the OpenAI
+        # client / encoding the image so we don't waste CPU on requests that
+        # are about to be blocked. Timeout converts overload into a clean
+        # 5xx-equivalent for the caller rather than an indefinite hang.
+        sem = _get_global_semaphore(self.settings)
+        timeout = float(self.settings.vlm_global_acquire_timeout)
+        if not sem.acquire(timeout=timeout if timeout > 0 else None):
+            raise VLMGlobalConcurrencyTimeout(
+                f"Could not acquire VLM global semaphore within {timeout}s "
+                f"(cap = {self.settings.vlm_global_concurrency}); "
+                "lower request rate or raise SCI_DATA_LOGGER_VLM_GLOBAL_CONCURRENCY."
+            )
+        try:
+            client = OpenAI(
+                api_key=self.settings.dashscope_api_key,
+                base_url=self.settings.qwen_base_url,
+                timeout=self.settings.qwen_request_timeout,
+            )
+            image_url = self._image_data_url(
+                image_path,
+                max_side=self.settings.qwen_image_max_side,
+                size_threshold=self.settings.qwen_image_downscale_threshold_bytes,
+            )
+            response = self._create_completion(client, image_url, prompt)
+        finally:
+            sem.release()
+
         content = response.choices[0].message.content or ""
         return {
             "raw_text": content,

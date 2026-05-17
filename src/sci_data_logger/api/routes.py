@@ -14,6 +14,7 @@ from fastapi import (
     Form,
     Header,
     HTTPException,
+    Path as FastAPIPath,
     Query,
     Response,
     UploadFile,
@@ -27,6 +28,8 @@ from sci_data_logger.config import Settings, get_settings
 from sci_data_logger.db import repository
 from sci_data_logger.db.session import get_session
 from sci_data_logger.schemas import (
+    EXPERIMENT_ID_MAX_LENGTH,
+    EXPERIMENT_ID_PATTERN,
     DraftExperimentMetadataRequest,
     DraftExperimentRequest,
     ExperimentRecord,
@@ -34,6 +37,19 @@ from sci_data_logger.schemas import (
     ReviewStatus,
 )
 from sci_data_logger.services.orchestrator import ExperimentOrchestrator
+
+
+# Reusable Annotated alias for path-param-style experiment_id validation
+# (FastAPI/Starlette path-param validation is separate from pydantic field
+# validation on request bodies). Mirrors schemas.ExperimentId.
+ExperimentIdPath = Annotated[
+    str,
+    FastAPIPath(min_length=1, max_length=EXPERIMENT_ID_MAX_LENGTH, pattern=EXPERIMENT_ID_PATTERN),
+]
+ExperimentIdForm = Annotated[
+    str,
+    Form(min_length=1, max_length=EXPERIMENT_ID_MAX_LENGTH, pattern=EXPERIMENT_ID_PATTERN),
+]
 
 
 def require_api_key(
@@ -80,19 +96,30 @@ def health(
 ) -> dict[str, object]:
     """Liveness + readiness probe.
 
-    - Always returns the static configuration snapshot (app name, version,
-      model id, whether DashScope key is configured, whether API-key auth
-      is enforced).
+    - Static configuration snapshot (app name, version, model id, whether
+      DashScope key is configured, whether API-key auth is enforced).
+    - Probes ``vlm_client.is_configured`` so callers see whether VLM calls
+      are *actually* dispatchable (not just "key string is set" — covers
+      the case where dashscope_api_key was set but vlm/client.py can't
+      construct its client).
     - Runs ``SELECT 1`` against the DB. On failure returns HTTP 503
       ``{"status": "degraded", ...}`` so monitoring can tell the difference
       between "process alive but DB broken" and "fully healthy".
     """
+    from sci_data_logger.vlm import QwenVLMClient
+
     settings = get_settings()
+    try:
+        vlm_ready = QwenVLMClient(settings=settings).is_configured
+    except Exception:  # noqa: BLE001 — health endpoint must never crash itself
+        vlm_ready = False
+
     result: dict[str, object] = {
         "app": settings.app_name,
         "version": settings.app_version,
         "vlm_model": settings.qwen_vlm_model,
         "dashscope_configured": bool(settings.dashscope_api_key),
+        "vlm_client_ready": vlm_ready,
         "api_key_enforced": bool(settings.api_key),
     }
     try:
@@ -139,7 +166,7 @@ def create_experiment_draft(
 @router.post("/experiments/draft/upload", response_model=ExperimentRecord)
 def create_experiment_draft_from_uploads(
     response: Response,
-    experiment_id: Annotated[str, Form()],
+    experiment_id: ExperimentIdForm,
     images: Annotated[list[UploadFile] | None, File()] = None,
     instrument_files: Annotated[list[UploadFile] | None, File()] = None,
     user_fields: Annotated[str | None, Form()] = None,
@@ -186,7 +213,7 @@ def create_experiment_draft_from_uploads(
 
 @router.post("/experiments/{experiment_id}/pages", response_model=ExperimentRecord)
 def append_pages_to_draft(
-    experiment_id: str,
+    experiment_id: ExperimentIdPath,
     response: Response,
     images: Annotated[list[UploadFile] | None, File()] = None,
     instrument_files: Annotated[list[UploadFile] | None, File()] = None,
@@ -271,7 +298,7 @@ def list_experiments(
 
 @router.get("/experiments/{experiment_id}", response_model=ExperimentRecord)
 def get_experiment(
-    experiment_id: str,
+    experiment_id: ExperimentIdPath,
     session: Session = Depends(get_session),
 ) -> ExperimentRecord:
     record = repository.get_record(session, experiment_id)
@@ -282,7 +309,7 @@ def get_experiment(
 
 @router.patch("/experiments/{experiment_id}/status", response_model=ExperimentRecord)
 def patch_experiment_status(
-    experiment_id: str,
+    experiment_id: ExperimentIdPath,
     body: StatusUpdateRequest,
     session: Session = Depends(get_session),
 ) -> ExperimentRecord:
@@ -300,7 +327,7 @@ def patch_experiment_status(
     response_model=ExperimentRecord,
 )
 def resolve_review_issue_endpoint(
-    experiment_id: str,
+    experiment_id: ExperimentIdPath,
     issue_id: str,
     session: Session = Depends(get_session),
 ) -> ExperimentRecord:
@@ -314,7 +341,7 @@ def resolve_review_issue_endpoint(
 
 @router.delete("/experiments/{experiment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_experiment(
-    experiment_id: str,
+    experiment_id: ExperimentIdPath,
     session: Session = Depends(get_session),
 ) -> None:
     deleted = repository.delete_record(session, experiment_id)
@@ -361,7 +388,7 @@ def _reject_disallowed_suffix(upload: UploadFile, allowed: set[str], kind: str) 
 def _save_uploads(
     uploads: list[UploadFile] | None,
     settings: Settings,
-    experiment_id: str,
+    experiment_id: ExperimentIdPath,
     kind: str,
 ) -> list[tuple[Path, str]]:
     try:
@@ -383,7 +410,7 @@ def _save_uploads(
 def _save_upload(
     upload: UploadFile,
     settings: Settings,
-    experiment_id: str,
+    experiment_id: ExperimentIdPath,
     kind: str,
 ) -> tuple[Path, str]:
     storage_root = settings.ensure_storage().resolve()

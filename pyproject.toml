@@ -22,6 +22,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.3.0",
+    "pytest-cov>=5.0.0",
     "ruff>=0.6.0",
 ]
 
@@ -41,3 +42,22 @@ target-version = "py311"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src/sci_data_logger"]
+branch = false
+omit = [
+    # Typer CLI entry point is exercised end-to-end via `sci-data-logger`, not
+    # unit-tested. Listed here so coverage targets remain meaningful — drop
+    # this when CLI tests land.
+    "src/sci_data_logger/cli.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+]

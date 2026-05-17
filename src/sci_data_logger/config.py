@@ -50,6 +50,20 @@ class Settings(BaseSettings):
         default=4,
         alias="SCI_DATA_LOGGER_VLM_CONCURRENCY",
     )
+    # Process-wide cap on simultaneously-in-flight VLM calls. The per-request
+    # orchestrator uses `vlm_concurrency` workers; many concurrent requests
+    # multiplied by that count can quickly saturate DashScope quota and local
+    # sockets. The semaphore in `vlm/client.py` blocks above this number;
+    # `vlm_global_acquire_timeout` bounds the wait so a request fails fast
+    # rather than hanging.
+    vlm_global_concurrency: int = Field(
+        default=8,
+        alias="SCI_DATA_LOGGER_VLM_GLOBAL_CONCURRENCY",
+    )
+    vlm_global_acquire_timeout: float = Field(
+        default=120.0,
+        alias="SCI_DATA_LOGGER_VLM_GLOBAL_ACQUIRE_TIMEOUT",
+    )
 
     storage_root: Path = Field(
         default=Path(".local_data"),
@@ -90,6 +104,19 @@ class Settings(BaseSettings):
     # endpoint except /health requires header X-API-Key: <value>; mismatch
     # returns 401. Set via SCI_DATA_LOGGER_API_KEY env or .env file.
     api_key: str | None = Field(default=None, alias="SCI_DATA_LOGGER_API_KEY")
+
+    # Opt-in: strip PagePacket.raw_model_output from the JSON blob before
+    # writing it to the experiments row. raw_model_output is the verbatim VLM
+    # response per page — typically the bulkiest field, useful only for
+    # debugging the parser. Stripping shrinks rows ~5-10x on average; the
+    # tradeoff is that a fetched record won't carry the raw VLM payload back.
+    # Important: catalog/event data is preserved because the orchestrator
+    # already extracts it into structured fields (materials_catalog,
+    # instruments_catalog, samples_catalog, events) on the top-level record.
+    db_strip_raw_model_output: bool = Field(
+        default=False,
+        alias="SCI_DATA_LOGGER_DB_STRIP_RAW_MODEL_OUTPUT",
+    )
 
     def ensure_storage(self) -> Path:
         self.storage_root.mkdir(parents=True, exist_ok=True)

@@ -40,9 +40,23 @@ def test_upload_draft_saves_files_under_storage_root(monkeypatch, tmp_path: Path
     reset_engine_cache()
     client = TestClient(create_app())
 
+    # Path-traversal-style experiment_id (`../EXP 001`) is now rejected at the
+    # request boundary by the EXPERIMENT_ID_PATTERN constraint — the request
+    # never reaches `_safe_path_part`. This is stricter (and safer) than the
+    # original sanitization behavior. We separately verify the unsafe-filename
+    # behavior with a *legal* experiment_id below.
+    bad = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "../EXP 001"},
+        files=[("instrument_files", ("foo.csv", b"x", "text/csv"))],
+    )
+    assert bad.status_code == 422, bad.text
+
+    # Same upload with a legal experiment_id: the file-name still gets
+    # sanitized by _safe_filename, stays under storage_root.
     response = client.post(
         "/experiments/draft/upload",
-        data={"experiment_id": "../EXP 001", "user_fields": '{"sample_id": "S-1"}'},
+        data={"experiment_id": "EXP-001", "user_fields": '{"sample_id": "S-1"}'},
         files=[
             (
                 "instrument_files",
@@ -51,7 +65,7 @@ def test_upload_draft_saves_files_under_storage_root(monkeypatch, tmp_path: Path
         ],
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     request = captured["request"]
     saved_path = request.instrument_file_paths[0]
     assert saved_path.is_relative_to(tmp_path.resolve())
