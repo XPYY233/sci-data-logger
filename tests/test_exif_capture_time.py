@@ -10,7 +10,7 @@ def test_read_capture_time_returns_iso_string(tmp_path: Path) -> None:
     returns an ISO 8601 string. Falls back to mocking PIL.Image.open if writing
     EXIF round-trip is unavailable in this environment.
     """
-    PIL = pytest.importorskip("PIL")
+    pytest.importorskip("PIL")
     from PIL import ExifTags, Image
 
     from sci_data_logger.services.document import _read_capture_time

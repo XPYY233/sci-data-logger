@@ -304,5 +304,48 @@ def test_merge_preserves_locked_status(monkeypatch, app_with_temp_db):
     )
     assert merge.status_code == 200, merge.text
     merged = merge.json()
+    # LOCKED is terminal: status survives AND no new pages are appended.
+    # See repository.merge_record locked short-circuit.
     assert merged["status"] == ReviewStatus.LOCKED.value
-    assert len(merged["pages"]) == 2
+    assert len(merged["pages"]) == 1, (
+        "LOCKED records should refuse new pages; got "
+        f"{len(merged['pages'])} pages after attempted append"
+    )
+
+
+def test_append_pages_rejects_empty_body(monkeypatch, app_with_temp_db):
+    """POST /experiments/{id}/pages with no files should 400, not silent no-op."""
+    _stub_doc_processor_with_materials(monkeypatch, {"first.png": "M1"})
+    client = TestClient(app_with_temp_db)
+    create = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-EMPTY"},
+        files=[("images", ("first.png", _png_bytes(), "image/png"))],
+    )
+    assert create.status_code == 200, create.text
+
+    resp = client.post("/experiments/EXP-EMPTY/pages")
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "no files provided"
+
+
+def test_upload_rejects_disallowed_image_extension(app_with_temp_db):
+    """Upload of a .exe (or anything not in the image/text/pdf allowlist) returns 415."""
+    client = TestClient(app_with_temp_db)
+    resp = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-415"},
+        files=[("images", ("malware.exe", b"MZ\x90\x00", "application/octet-stream"))],
+    )
+    assert resp.status_code == 415
+    assert "unsupported file extension" in resp.json()["detail"]
+
+
+def test_upload_rejects_disallowed_instrument_extension(app_with_temp_db):
+    client = TestClient(app_with_temp_db)
+    resp = client.post(
+        "/experiments/draft/upload",
+        data={"experiment_id": "EXP-415-INSTR"},
+        files=[("instrument_files", ("bin.exe", b"MZ", "application/octet-stream"))],
+    )
+    assert resp.status_code == 415

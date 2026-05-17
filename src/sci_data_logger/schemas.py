@@ -229,7 +229,15 @@ class ReviewIssue(BaseModel):
 
 
 class ExperimentRecord(BaseModel):
-    """Experiment draft. V0: keeps materials/steps/observations as derived properties for backward compat."""
+    """Experiment draft. V0: keeps materials/steps/observations as derived properties for backward compat.
+
+    NOTE on event chains: ``record.events`` is the **authoritative** source of
+    ``derived_from`` / ``produces_for`` edges (rebuilt every time the orchestrator
+    runs). The same ``ExperimentEvent`` objects may also appear inside
+    ``record.pages[*].extracted_events`` for evidence-back-ref purposes — those
+    snapshots are NOT re-linked on incremental merge, so consumers should read
+    causal chains from ``record.events`` only.
+    """
 
     experiment_id: str
     project_id: str | None = None

@@ -32,11 +32,16 @@ PDF_SUFFIXES = {".pdf"}
 
 
 def _read_capture_time(image_path: Path) -> str | None:
-    """Best-effort extraction of EXIF DateTimeOriginal as ISO 8601. Returns None on any failure."""
+    """Best-effort extraction of EXIF DateTimeOriginal as ISO 8601. Returns None on any failure.
+
+    Uses Pillow's public ``Image.getexif()`` API rather than the private
+    ``_getexif`` (which is deprecated and JPEG/TIFF-only).
+    """
     try:
-        from PIL import Image, ExifTags
+        from PIL import ExifTags, Image
+
         with Image.open(image_path) as im:
-            exif = im._getexif() or {}
+            exif = im.getexif() or {}
         tag_map = {v: k for k, v in ExifTags.TAGS.items()}
         raw = exif.get(tag_map.get("DateTimeOriginal")) or exif.get(tag_map.get("DateTime"))
         if not raw:

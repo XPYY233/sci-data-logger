@@ -348,6 +348,7 @@ class ExperimentOrchestrator:
         """
         issues: list[ReviewIssue] = []
         stub_ids: set[str] = set()
+        stub_sample_ids: set[str] = set()
         if samples_catalog is None:
             samples_catalog = []
 
@@ -416,6 +417,7 @@ class ExperimentOrchestrator:
                 return s
             new_s = Sample(canonical_label=ref.strip())
             samples_catalog.append(new_s)
+            stub_sample_ids.add(new_s.sample_id)
             issues.append(ReviewIssue(
                 severity="warning",
                 title="Sample reference auto-created",
@@ -521,7 +523,7 @@ class ExperimentOrchestrator:
 
         # Fold stub samples (auto-created when no catalog match) into any
         # real entry sharing the same normalized label.
-        self._reconcile_stub_samples(samples_catalog, all_events)
+        self._reconcile_stub_samples(samples_catalog, all_events, stub_sample_ids)
 
         # Global sort: date_iso > page_number_hint > captured_at > (page_idx, sequence_index)
         def sort_key(item):
@@ -563,12 +565,17 @@ class ExperimentOrchestrator:
         cls,
         samples_catalog: list[Sample],
         all_events: list[tuple[int, ExperimentEvent]],
+        stub_sample_ids: set[str] | None = None,
     ) -> None:
         """Collapse auto-created stub Samples into pre-existing entries
         sharing the same normalized label. Rewrites event.sample_ref in place
         on the (page_idx, event) tuples.
+
+        When ``stub_sample_ids`` is supplied, prefer a *non-stub* entry as the
+        survivor for each label group. Otherwise (legacy path) the first entry
+        wins, which relies on insertion order placing real entries first.
         """
-        # Group by normalized label; pick the first entry as canonical.
+        stub_sample_ids = stub_sample_ids or set()
         by_norm: dict[str, list[Sample]] = {}
         for s in samples_catalog:
             key = cls._norm_sample_label(s.canonical_label)
@@ -576,12 +583,18 @@ class ExperimentOrchestrator:
 
         rewrite: dict[str, str] = {}
         survivors: list[Sample] = []
-        for key, group in by_norm.items():
+        for _, group in by_norm.items():
             if not group:
                 continue
-            keeper = group[0]
+            # Prefer the first non-stub entry as keeper; fall back to group[0].
+            keeper = next(
+                (s for s in group if s.sample_id not in stub_sample_ids),
+                group[0],
+            )
             survivors.append(keeper)
-            for dup in group[1:]:
+            for dup in group:
+                if dup is keeper:
+                    continue
                 rewrite[dup.sample_id] = keeper.sample_id
                 if dup.canonical_label and dup.canonical_label not in keeper.aliases \
                         and dup.canonical_label != keeper.canonical_label:

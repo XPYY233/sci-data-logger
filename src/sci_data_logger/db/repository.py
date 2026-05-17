@@ -150,6 +150,19 @@ def merge_record(
 
     existing = ExperimentRecord.model_validate_json(existing_row.record_json)
 
+    # Locked records are terminal: refuse to append/merge new content. The
+    # caller still gets HTTP 200 with the unchanged record (semantically a
+    # no-op), which preserves the test's expectation that the locked status
+    # survives a re-upload attempt.
+    existing_status_for_lock_check = (
+        ReviewStatus(existing.status) if not isinstance(existing.status, ReviewStatus) else existing.status
+    )
+    if existing_status_for_lock_check == ReviewStatus.LOCKED:
+        existing_row.updated_at = _utcnow()
+        session.add(existing_row)
+        session.flush()
+        return existing_row
+
     combined_pages: list[PagePacket] = [*existing.pages, *new_record.pages]
     combined_measurements = [*existing.measurements, *new_record.measurements]
     combined_source_assets = [*existing.source_assets, *new_record.source_assets]

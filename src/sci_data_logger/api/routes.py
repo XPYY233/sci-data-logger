@@ -124,6 +124,12 @@ def append_pages_to_draft(
     if existing is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="experiment not found")
 
+    if not (images or instrument_files):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="no files provided",
+        )
+
     settings = get_settings()
     image_paths = _save_uploads(images, settings, experiment_id, "images")
     instrument_file_paths = _save_uploads(
@@ -239,13 +245,36 @@ def runtime_config() -> dict[str, object]:
     }
 
 
+# Whitelist of suffixes accepted by upload endpoints. Kept in sync with the
+# suffixes that DocumentProcessor.analyze_pages / InstrumentAdapter actually
+# handle — anything else is rejected up front rather than silently written to
+# disk and producing a "unsupported file type" PagePacket downstream.
+_ALLOWED_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff", ".pdf", ".txt", ".md"}
+_ALLOWED_INSTRUMENT_SUFFIXES = {".csv", ".tsv", ".txt", ".md", ".log", ".report"}
+
+
+def _reject_disallowed_suffix(upload: UploadFile, allowed: set[str], kind: str) -> None:
+    name = (upload.filename or "").lower()
+    suffix = Path(name).suffix
+    if suffix not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"{kind}: unsupported file extension '{suffix or '(none)'}'",
+        )
+
+
 def _save_uploads(
     uploads: list[UploadFile] | None,
     settings: Settings,
     experiment_id: str,
     kind: str,
 ) -> list[Path]:
-    return [_save_upload(upload, settings, experiment_id, kind) for upload in uploads or []]
+    allowed = _ALLOWED_IMAGE_SUFFIXES if kind == "images" else _ALLOWED_INSTRUMENT_SUFFIXES
+    saved: list[Path] = []
+    for upload in uploads or []:
+        _reject_disallowed_suffix(upload, allowed, kind)
+        saved.append(_save_upload(upload, settings, experiment_id, kind))
+    return saved
 
 
 def _save_upload(

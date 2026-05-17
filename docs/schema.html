@@ -103,7 +103,7 @@
   </aside>
   <main>
     <h1 class="title">sci_data_logger · schema</h1>
-    <p class="meta">Generated 2026-05-17 02:13 UTC · 19 models · 2 enums · auto-generated from <code>sci_data_logger.schemas</code></p>
+    <p class="meta">Generated 2026-05-17 02:21 UTC · 19 models · 2 enums · auto-generated from <code>sci_data_logger.schemas</code></p>
 
     <section id="graph">
       <h2>Relationship graph</h2>
@@ -156,24 +156,31 @@
     
     <section id="ExperimentRecord" class="model">
       <h2>ExperimentRecord</h2>
-      <p class="docstring">Experiment draft. V0: keeps materials/steps/observations as derived properties for backward compat.</p>
+      <p class="docstring">Experiment draft. V0: keeps materials/steps/observations as derived properties for backward compat.
+
+NOTE on event chains: ``record.events`` is the **authoritative** source of
+``derived_from`` / ``produces_for`` edges (rebuilt every time the orchestrator
+runs). The same ``ExperimentEvent`` objects may also appear inside
+``record.pages[*].extracted_events`` for evidence-back-ref purposes — those
+snapshots are NOT re-linked on incremental merge, so consumers should read
+causal chains from ``record.events`` only.</p>
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody><tr><td class='fname'><code>experiment_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>project_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>group_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>title</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>project_id</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>group_id</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>title</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>status</code></td><td class='ftype'><code>ReviewStatus</code></td><td class='fdefault'><code>&lt;ReviewStatus.DRAFT: &#x27;draft&#x27;&gt;</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>materials_catalog</code></td><td class='ftype'><code>list[Material]</code><a class="ref" href="#Material">Material</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>instruments_catalog</code></td><td class='ftype'><code>list[Instrument]</code><a class="ref" href="#Instrument">Instrument</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>samples_catalog</code></td><td class='ftype'><code>list[Sample]</code><a class="ref" href="#Sample">Sample</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>events</code></td><td class='ftype'><code>list[ExperimentEvent]</code><a class="ref" href="#ExperimentEvent">ExperimentEvent</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>source_assets</code></td><td class='ftype'><code>list[DataAsset]</code><a class="ref" href="#DataAsset">DataAsset</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>pages</code></td><td class='ftype'><code>list[PagePacket]</code><a class="ref" href="#PagePacket">PagePacket</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>measurements</code></td><td class='ftype'><code>list[MeasurementPacket]</code><a class="ref" href="#MeasurementPacket">MeasurementPacket</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>review_issues</code></td><td class='ftype'><code>list[ReviewIssue]</code><a class="ref" href="#ReviewIssue">ReviewIssue</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>materials_catalog</code></td><td class='ftype'><code>list[Material]</code><a class="ref" href="#Material">Material</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>instruments_catalog</code></td><td class='ftype'><code>list[Instrument]</code><a class="ref" href="#Instrument">Instrument</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>samples_catalog</code></td><td class='ftype'><code>list[Sample]</code><a class="ref" href="#Sample">Sample</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>events</code></td><td class='ftype'><code>list[ExperimentEvent]</code><a class="ref" href="#ExperimentEvent">ExperimentEvent</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>source_assets</code></td><td class='ftype'><code>list[DataAsset]</code><a class="ref" href="#DataAsset">DataAsset</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>pages</code></td><td class='ftype'><code>list[PagePacket]</code><a class="ref" href="#PagePacket">PagePacket</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>measurements</code></td><td class='ftype'><code>list[MeasurementPacket]</code><a class="ref" href="#MeasurementPacket">MeasurementPacket</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>review_issues</code></td><td class='ftype'><code>list[ReviewIssue]</code><a class="ref" href="#ReviewIssue">ReviewIssue</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -184,10 +191,10 @@
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody><tr><td class='fname'><code>experiment_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>project_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>group_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>title</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>project_id</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>group_id</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>title</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>status</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>created_at</code></td><td class='ftype'><code>datetime</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>updated_at</code></td><td class='ftype'><code>datetime</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr></tbody>
@@ -200,27 +207,27 @@
       <p class="docstring">Atomic unit of the experiment timeline.</p>
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-        <tbody><tr><td class='fname'><code>event_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;evt_bf2e34c68f2a&#x27;</code></td><td class='fdesc'></td></tr>
+        <tbody><tr><td class='fname'><code>event_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory (auto-generated)</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>sequence_index</code></td><td class='ftype'><code>int</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>date_label</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>date_iso</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>location</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>instrument_ref</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>sample_ref</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>date_label</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>date_iso</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>location</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>instrument_ref</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>sample_ref</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>action_type</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>description</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>inputs</code></td><td class='ftype'><code>list[EventIO]</code><a class="ref" href="#EventIO">EventIO</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>outputs</code></td><td class='ftype'><code>list[EventOutput]</code><a class="ref" href="#EventOutput">EventOutput</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>parameters</code></td><td class='ftype'><code>dict[str, FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>recipe_ratio</code></td><td class='ftype'><code>UnionType[dict[str, Any], None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>equation</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>observations</code></td><td class='ftype'><code>list[FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>inputs</code></td><td class='ftype'><code>list[EventIO]</code><a class="ref" href="#EventIO">EventIO</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>outputs</code></td><td class='ftype'><code>list[EventOutput]</code><a class="ref" href="#EventOutput">EventOutput</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>parameters</code></td><td class='ftype'><code>dict[str, FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>recipe_ratio</code></td><td class='ftype'><code>dict[str, Any] | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>equation</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>observations</code></td><td class='ftype'><code>list[FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>page_ref</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>evidence_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>confidence</code></td><td class='ftype'><code>UnionType[float, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>derived_from</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'>event_id references this event consumes outputs from</td></tr>
-<tr><td class='fname'><code>produces_for</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'>event_id references that consume this event&#x27;s outputs</td></tr></tbody>
+<tr><td class='fname'><code>evidence_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>confidence</code></td><td class='ftype'><code>float | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>derived_from</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'>event_id references this event consumes outputs from</td></tr>
+<tr><td class='fname'><code>produces_for</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'>event_id references that consume this event&#x27;s outputs</td></tr></tbody>
       </table>
     </section>
     
@@ -259,33 +266,33 @@ Attributes:
     __pydantic_private__: Values of private attributes set on the model instance.</p>
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-        <tbody><tr><td class='fname'><code>page_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;page_a51618766b06&#x27;</code></td><td class='fdesc'></td></tr>
+        <tbody><tr><td class='fname'><code>page_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory (auto-generated)</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>source_path</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>page_types</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → [&#x27;unknown&#x27;]</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>page_number_hint</code></td><td class='ftype'><code>UnionType[int, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>captured_at</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>sample_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_samples</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>text_blocks</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>table_blocks</code></td><td class='ftype'><code>list[dict[str, Any]]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_materials</code></td><td class='ftype'><code>list[MaterialInput]</code><a class="ref" href="#MaterialInput">MaterialInput</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_steps</code></td><td class='ftype'><code>list[ProtocolStep]</code><a class="ref" href="#ProtocolStep">ProtocolStep</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_observations</code></td><td class='ftype'><code>list[FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_instruments</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_facts</code></td><td class='ftype'><code>dict[str, FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>open_questions</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>warnings</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>page_number_hint</code></td><td class='ftype'><code>int | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>captured_at</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>sample_id</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_samples</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>text_blocks</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>table_blocks</code></td><td class='ftype'><code>list[dict[str, Any]]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_materials</code></td><td class='ftype'><code>list[MaterialInput]</code><a class="ref" href="#MaterialInput">MaterialInput</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_steps</code></td><td class='ftype'><code>list[ProtocolStep]</code><a class="ref" href="#ProtocolStep">ProtocolStep</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_observations</code></td><td class='ftype'><code>list[FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_instruments</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_facts</code></td><td class='ftype'><code>dict[str, FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>open_questions</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>warnings</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>review_required</code></td><td class='ftype'><code>bool</code></td><td class='fdefault'><code>False</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>evidence_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_dates</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_locations</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_batches</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_equations</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_target_phases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_failure_markers</code></td><td class='ftype'><code>list[dict[str, Any]]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_recipe_ratios</code></td><td class='ftype'><code>list[dict[str, Any]]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>extracted_events</code></td><td class='ftype'><code>list[ExperimentEvent]</code><a class="ref" href="#ExperimentEvent">ExperimentEvent</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>raw_model_output</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>evidence_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_dates</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_locations</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_batches</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_equations</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_target_phases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_failure_markers</code></td><td class='ftype'><code>list[dict[str, Any]]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_recipe_ratios</code></td><td class='ftype'><code>list[dict[str, Any]]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>extracted_events</code></td><td class='ftype'><code>list[ExperimentEvent]</code><a class="ref" href="#ExperimentEvent">ExperimentEvent</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>raw_model_output</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -324,14 +331,14 @@ Attributes:
     __pydantic_private__: Values of private attributes set on the model instance.</p>
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-        <tbody><tr><td class='fname'><code>run_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;run_50fa8c6a8563&#x27;</code></td><td class='fdesc'></td></tr>
+        <tbody><tr><td class='fname'><code>run_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory (auto-generated)</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>source_path</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>technique</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>instrument_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>raw_parameters</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>normalized_parameters</code></td><td class='ftype'><code>dict[str, FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>assets</code></td><td class='ftype'><code>list[DataAsset]</code><a class="ref" href="#DataAsset">DataAsset</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>warnings</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>technique</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>instrument_id</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>raw_parameters</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>normalized_parameters</code></td><td class='ftype'><code>dict[str, FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>assets</code></td><td class='ftype'><code>list[DataAsset]</code><a class="ref" href="#DataAsset">DataAsset</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>warnings</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -341,13 +348,13 @@ Attributes:
       <p class="docstring">Catalog-level material entry, deduplicated across pages.</p>
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-        <tbody><tr><td class='fname'><code>material_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;mat_b410181327cb&#x27;</code></td><td class='fdesc'></td></tr>
+        <tbody><tr><td class='fname'><code>material_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory (auto-generated)</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>canonical_name</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>display_name</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>aliases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>chemical_formula</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>roles</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>display_name</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>aliases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>chemical_formula</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>roles</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -357,14 +364,14 @@ Attributes:
       <p class="docstring">Catalog-level instrument entry. `instrument_label` 例如实验室内的红圈编号 &#x27;707&#x27;。</p>
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-        <tbody><tr><td class='fname'><code>instrument_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;instr_fb36561f8fe9&#x27;</code></td><td class='fdesc'></td></tr>
+        <tbody><tr><td class='fname'><code>instrument_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory (auto-generated)</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>technique</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>instrument_label</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>location</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>manufacturer</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>model</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>aliases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>instrument_label</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>location</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>manufacturer</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>model</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>aliases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -374,13 +381,13 @@ Attributes:
       <p class="docstring">Catalog-level sample entry, deduplicated across pages.</p>
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-        <tbody><tr><td class='fname'><code>sample_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;sample_fa84b7341824&#x27;</code></td><td class='fdesc'></td></tr>
+        <tbody><tr><td class='fname'><code>sample_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory (auto-generated)</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>canonical_label</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>display_label</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>aliases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>target_material_ref</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>batch</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>display_label</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>aliases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>target_material_ref</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>batch</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -419,11 +426,11 @@ Attributes:
     __pydantic_private__: Values of private attributes set on the model instance.</p>
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-        <tbody><tr><td class='fname'><code>material_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;mat_adb8ad16e1d5&#x27;</code></td><td class='fdesc'></td></tr>
+        <tbody><tr><td class='fname'><code>material_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory (auto-generated)</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>name</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>amount</code></td><td class='ftype'><code>UnionType[FieldValue, None]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>role</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>amount</code></td><td class='ftype'><code>FieldValue | None</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>role</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -465,13 +472,13 @@ Attributes:
         <tbody><tr><td class='fname'><code>instrument_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>display_name</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>technique</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>manufacturer</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>model</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>aliases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>file_patterns</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>manufacturer</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>model</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>aliases</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>file_patterns</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>parser_plugin</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>&#x27;generic_text_report&#x27;</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>field_mappings</code></td><td class='ftype'><code>dict[str, str]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>defaults</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>field_mappings</code></td><td class='ftype'><code>dict[str, str]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>defaults</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -510,15 +517,15 @@ Attributes:
     __pydantic_private__: Values of private attributes set on the model instance.</p>
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-        <tbody><tr><td class='fname'><code>step_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;step_90a1641ed4c0&#x27;</code></td><td class='fdesc'></td></tr>
+        <tbody><tr><td class='fname'><code>step_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory (auto-generated)</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>step_type</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>sequence_index</code></td><td class='ftype'><code>int</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>description</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>inputs</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>outputs</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>parameters</code></td><td class='ftype'><code>dict[str, FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>evidence_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>confidence</code></td><td class='ftype'><code>UnionType[float, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>inputs</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>outputs</code></td><td class='ftype'><code>list[str]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>parameters</code></td><td class='ftype'><code>dict[str, FieldValue]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>evidence_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>confidence</code></td><td class='ftype'><code>float | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -529,8 +536,8 @@ Attributes:
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody><tr><td class='fname'><code>material_ref</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>amount</code></td><td class='ftype'><code>UnionType[FieldValue, None]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>notes</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>amount</code></td><td class='ftype'><code>FieldValue | None</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>notes</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -541,10 +548,10 @@ Attributes:
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody><tr><td class='fname'><code>material_ref</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>amount</code></td><td class='ftype'><code>UnionType[FieldValue, None]</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>notes</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>target_phase</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>failure_marker</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>amount</code></td><td class='ftype'><code>FieldValue | None</code><a class="ref" href="#FieldValue">FieldValue</a></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>notes</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>target_phase</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>failure_marker</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -584,9 +591,9 @@ Attributes:
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody><tr><td class='fname'><code>value</code></td><td class='ftype'><code>Any</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>unit</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>source_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>confidence</code></td><td class='ftype'><code>UnionType[float, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>unit</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>source_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>confidence</code></td><td class='ftype'><code>float | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>reviewed</code></td><td class='ftype'><code>bool</code></td><td class='fdefault'><code>False</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
@@ -628,9 +635,9 @@ Attributes:
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody><tr><td class='fname'><code>source_type</code></td><td class='ftype'><code>SourceType</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>source_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>locator</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>text</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>confidence</code></td><td class='ftype'><code>UnionType[float, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>locator</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>text</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>confidence</code></td><td class='ftype'><code>float | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -669,12 +676,12 @@ Attributes:
     __pydantic_private__: Values of private attributes set on the model instance.</p>
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-        <tbody><tr><td class='fname'><code>asset_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;asset_31281fa59d0c&#x27;</code></td><td class='fdesc'></td></tr>
+        <tbody><tr><td class='fname'><code>asset_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory (auto-generated)</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>source_path</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>source_type</code></td><td class='ftype'><code>SourceType</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>media_type</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>checksum</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>media_type</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>checksum</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>metadata</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -713,11 +720,11 @@ Attributes:
     __pydantic_private__: Values of private attributes set on the model instance.</p>
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
-        <tbody><tr><td class='fname'><code>issue_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory → &#x27;issue_2b91220381df&#x27;</code></td><td class='fdesc'></td></tr>
+        <tbody><tr><td class='fname'><code>issue_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>factory (auto-generated)</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>severity</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>&#x27;warning&#x27;</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>title</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
 <tr><td class='fname'><code>detail</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>evidence_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>evidence_refs</code></td><td class='ftype'><code>list[EvidenceRef]</code><a class="ref" href="#EvidenceRef">EvidenceRef</a></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -757,13 +764,13 @@ Attributes:
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody><tr><td class='fname'><code>experiment_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>image_paths</code></td><td class='ftype'><code>list[Path]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>instrument_file_paths</code></td><td class='ftype'><code>list[Path]</code></td><td class='fdefault'><code>factory → []</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>user_fields</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>project_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>group_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>title</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>image_paths</code></td><td class='ftype'><code>list[Path]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>instrument_file_paths</code></td><td class='ftype'><code>list[Path]</code></td><td class='fdefault'><code>list()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>user_fields</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>project_id</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>group_id</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>title</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     
@@ -774,11 +781,11 @@ Attributes:
       <table>
         <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody><tr><td class='fname'><code>experiment_id</code></td><td class='ftype'><code>str</code></td><td class='fdefault'><code>—</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>user_fields</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>factory → {}</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>project_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>group_id</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
-<tr><td class='fname'><code>title</code></td><td class='ftype'><code>UnionType[str, None]</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
+<tr><td class='fname'><code>user_fields</code></td><td class='ftype'><code>dict[str, Any]</code></td><td class='fdefault'><code>dict()</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>project_id</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>group_id</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>operator</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr>
+<tr><td class='fname'><code>title</code></td><td class='ftype'><code>str | None</code></td><td class='fdefault'><code>None</code></td><td class='fdesc'></td></tr></tbody>
       </table>
     </section>
     

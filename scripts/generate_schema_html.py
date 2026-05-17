@@ -19,10 +19,10 @@ from typing import Any, get_args, get_origin
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from pydantic import BaseModel
-from pydantic_core import PydanticUndefined
+from pydantic import BaseModel  # noqa: E402
+from pydantic_core import PydanticUndefined  # noqa: E402
 
-from sci_data_logger import schemas as schemas_module
+from sci_data_logger import schemas as schemas_module  # noqa: E402
 
 
 def _is_model(obj: Any) -> bool:
@@ -31,17 +31,20 @@ def _is_model(obj: Any) -> bool:
 
 def _render_type(annotation: Any) -> str:
     """Pretty-print a type annotation in a way that's robust to | unions and generics."""
+    import types as _types
+
     if annotation is type(None):
         return "None"
     if isinstance(annotation, type):
         return annotation.__name__
     origin = get_origin(annotation)
     args = get_args(annotation)
+    # PEP 604 `int | None` => origin is types.UnionType; typing.Optional => origin is typing.Union.
+    if origin is typing.Union or origin is getattr(_types, "UnionType", typing.Union):
+        return " | ".join(_render_type(a) for a in args)
     if origin is None:
         s = str(annotation)
         return s.replace("typing.", "")
-    if origin in (typing.Union, getattr(typing, "UnionType", typing.Union)):
-        return " | ".join(_render_type(a) for a in args)
     origin_name = getattr(origin, "__name__", str(origin))
     if args:
         return f"{origin_name}[{', '.join(_render_type(a) for a in args)}]"
@@ -51,13 +54,26 @@ def _render_type(annotation: Any) -> str:
 def _render_default(field) -> str:
     if field.default is not PydanticUndefined:
         return repr(field.default)
-    if field.default_factory is not None:
-        try:
-            sample = field.default_factory()
-            return f"factory → {sample!r}"
-        except Exception:
-            return "factory"
-    return "—"
+    if field.default_factory is None:
+        return "—"
+    # Stable string for noisy id factories so docs/schema.html doesn't churn per run.
+    factory_name = getattr(field.default_factory, "__qualname__", "") or getattr(
+        field.default_factory, "__name__", ""
+    )
+    factory_src = ""
+    try:
+        factory_src = inspect.getsource(field.default_factory).strip()
+    except (OSError, TypeError):
+        pass
+    if "new_id" in factory_src or "uuid" in factory_src.lower() or "datetime.now" in factory_src:
+        return "factory (auto-generated)"
+    if factory_name in {"list", "dict", "set", "tuple"}:
+        return f"{factory_name}()"
+    try:
+        sample = field.default_factory()
+        return f"factory → {sample!r}"
+    except Exception:
+        return "factory"
 
 
 def _related_models(annotation: Any, all_models: dict[str, type]) -> set[str]:
