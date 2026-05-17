@@ -58,6 +58,7 @@ def health() -> dict[str, object]:
 @router.post("/experiments/draft", response_model=ExperimentRecord)
 def create_experiment_draft(
     request: DraftExperimentMetadataRequest,
+    response: Response,
     session: Session = Depends(get_session),
 ) -> ExperimentRecord:
     """Create a draft from JSON metadata only.
@@ -76,7 +77,9 @@ def create_experiment_draft(
     )
     orchestrator = ExperimentOrchestrator()
     record = orchestrator.create_draft(draft_request)
-    repository.merge_record(session, record, orchestrator)
+    _, rejected_locked = repository.merge_record(session, record, orchestrator)
+    if rejected_locked:
+        response.headers["Locked-Append-Rejected"] = "true"
     session.flush()
     return repository.get_record(session, record.experiment_id) or record
 

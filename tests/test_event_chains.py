@@ -220,3 +220,62 @@ def test_legacy_steps_upgrade_preserves_io_for_chain_linking(tmp_path):
         "step→event upgrade dropped material flow; _link_event_chains "
         "produces nothing under legacy prompt"
     )
+
+
+def test_legacy_steps_upgrade_links_across_pages(tmp_path):
+    """Cross-page version of the legacy upgrade test: page 1 produces MnO2 via
+    legacy `steps`, page 2 consumes MnO2 via legacy `steps`. After global
+    resequence in _resolve_and_merge_events the chain must form across pages,
+    not just within a page. This pins the orchestrator's resequence-then-link
+    ordering — if a future refactor moves _link_event_chains before global
+    resequence, this test catches the silent regression.
+    """
+    from sci_data_logger.schemas import ProtocolStep
+
+    page1 = PagePacket(source_path="p1.jpg")
+    page1.raw_model_output = {
+        "json": {"materials_catalog": [{"canonical_name": "MnO2", "role": "precursor"}]}
+    }
+    page1.extracted_steps = [
+        ProtocolStep(
+            step_type="weigh",
+            sequence_index=1,
+            description="weigh MnO2 on page 1",
+            inputs=[],
+            outputs=["MnO2"],
+        ),
+    ]
+
+    page2 = PagePacket(source_path="p2.jpg")
+    page2.raw_model_output = {"json": {"materials_catalog": []}}
+    page2.extracted_steps = [
+        ProtocolStep(
+            step_type="calcine",
+            sequence_index=1,  # NOTE: collides with page1's seq_index until global resequence
+            description="calcine MnO2 on page 2",
+            inputs=["MnO2"],
+            outputs=[],
+        ),
+    ]
+
+    img1 = tmp_path / "p1.jpg"
+    img1.write_bytes(b"x")
+    img2 = tmp_path / "p2.jpg"
+    img2.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page1, page2]),
+    )
+    record = orch.create_draft(
+        DraftExperimentRequest(experiment_id="EXP-LEGACY-XPAGE", image_paths=[img1, img2]),
+    )
+
+    assert len(record.events) == 2
+    e_weigh, e_calcine = record.events  # global sort: page0 then page1
+    assert e_weigh.action_type == "weigh"
+    assert e_calcine.action_type == "calcine"
+    assert e_weigh.event_id in e_calcine.derived_from, (
+        "cross-page legacy chain broken: producer on page 1, consumer on page 2 "
+        "did not link via _link_event_chains. Did somebody move the call "
+        "before global resequence?"
+    )
+    assert e_calcine.event_id in e_weigh.produces_for

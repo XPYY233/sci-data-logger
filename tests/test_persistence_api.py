@@ -526,3 +526,38 @@ def test_merge_dedups_identical_source_paths(app_with_temp_db):
         f"expected an info-severity 'Duplicate page(s) ignored' review_issue; "
         f"got {[(ri.severity, ri.title) for ri in merged.review_issues]}"
     )
+
+
+def test_json_draft_endpoint_sets_locked_header_on_locked_record(app_with_temp_db):
+    """Audit consistency: JSON-body `/experiments/draft` endpoint (no files)
+    must also propagate the LOCKED-merge rejection signal via the
+    `Locked-Append-Rejected: true` header — same as the two upload endpoints.
+
+    Without this, a client repeatedly hitting the JSON endpoint with the same
+    `experiment_id` after lock would get HTTP 200 with no audit signal.
+    """
+    from sci_data_logger.db import repository
+    from sci_data_logger.db.session import get_engine_cached, get_session_factory
+
+    factory = get_session_factory(get_engine_cached())
+    with factory() as session:
+        # Pre-build a LOCKED record.
+        repository.save_record(session, ExperimentRecord(experiment_id="EXP-JSON-LOCK"))
+        session.commit()
+
+    client = TestClient(app_with_temp_db)
+    for s in ("needs_review", "reviewed", "locked"):
+        assert client.patch(
+            "/experiments/EXP-JSON-LOCK/status", json={"status": s}
+        ).status_code == 200
+
+    # Re-POST the JSON draft endpoint targeting the locked id.
+    resp = client.post(
+        "/experiments/draft",
+        json={"experiment_id": "EXP-JSON-LOCK"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.headers.get("Locked-Append-Rejected") == "true", (
+        "JSON-body draft endpoint diverged from upload endpoints: "
+        "no Locked-Append-Rejected header on a locked-target re-post"
+    )
