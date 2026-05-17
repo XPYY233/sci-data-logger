@@ -3,9 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from pydantic import ValidationError
 from sqlmodel import Session, select
 
 from sci_data_logger.db.models import ExperimentRecordORM
+from sci_data_logger.errors import CorruptRecordError
 from sci_data_logger.schemas import ExperimentRecord, PagePacket, ReviewIssue, ReviewStatus
 
 if TYPE_CHECKING:  # pragma: no cover - circular at runtime
@@ -97,11 +99,26 @@ def save_record(session: Session, record: ExperimentRecord) -> ExperimentRecordO
     return existing
 
 
+def _load_record(row: ExperimentRecordORM) -> ExperimentRecord:
+    """Parse the JSON blob back into an ExperimentRecord.
+
+    Wraps the ValidationError path so every read site (get_record /
+    update_review_status / resolve_review_issue / merge_record) surfaces a
+    typed CorruptRecordError instead of leaking pydantic's wall of detail.
+    Treats schema drift as data corruption — operator should manually fix
+    or delete the bad row.
+    """
+    try:
+        return ExperimentRecord.model_validate_json(row.record_json)
+    except ValidationError as exc:
+        raise CorruptRecordError(row.experiment_id, cause=exc) from exc
+
+
 def get_record(session: Session, experiment_id: str) -> ExperimentRecord | None:
     row = session.get(ExperimentRecordORM, experiment_id)
     if row is None:
         return None
-    return ExperimentRecord.model_validate_json(row.record_json)
+    return _load_record(row)
 
 
 def list_records(
@@ -143,7 +160,7 @@ def update_review_status(
     row = session.get(ExperimentRecordORM, experiment_id)
     if row is None:
         return None
-    record = ExperimentRecord.model_validate_json(row.record_json)
+    record = _load_record(row)
     current = (
         ReviewStatus(record.status) if not isinstance(record.status, ReviewStatus) else record.status
     )
@@ -169,7 +186,7 @@ def resolve_review_issue(
     row = session.get(ExperimentRecordORM, experiment_id)
     if row is None:
         return None
-    record = ExperimentRecord.model_validate_json(row.record_json)
+    record = _load_record(row)
     before = len(record.review_issues)
     record.review_issues = [i for i in record.review_issues if i.issue_id != issue_id]
     if len(record.review_issues) == before:
@@ -218,7 +235,7 @@ def merge_record(
     if existing_row is None:
         return save_record(session, new_record), False
 
-    existing = ExperimentRecord.model_validate_json(existing_row.record_json)
+    existing = _load_record(existing_row)
 
     # Locked records are terminal: refuse to append/merge new content. We
     # still return HTTP 200 with the unchanged record (semantically a no-op

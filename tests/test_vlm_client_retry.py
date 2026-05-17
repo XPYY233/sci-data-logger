@@ -143,8 +143,14 @@ def test_vlm_does_not_retry_on_bad_request(
     image_path = tmp_path / "stub.jpg"
     image_path.write_bytes(b"\xff\xd8\xff\xd9")
 
-    with pytest.raises(openai.BadRequestError):
+    # openai.BadRequestError is now translated into the domain VLMBadRequestError
+    # at the analyze_image boundary so route handlers / clients see a stable
+    # type and HTTP status. The library exception is preserved as __cause__.
+    from sci_data_logger.errors import VLMBadRequestError
+
+    with pytest.raises(VLMBadRequestError) as excinfo:
         client.analyze_image(image_path, "hi")
+    assert isinstance(excinfo.value.__cause__, openai.BadRequestError)
 
     assert fake.calls == 1
 
@@ -161,8 +167,14 @@ def test_vlm_gives_up_after_max_retries(
     image_path = tmp_path / "stub.jpg"
     image_path.write_bytes(b"\xff\xd8\xff\xd9")
 
-    with pytest.raises(openai.APITimeoutError):
+    # Retries exhausted → tenacity reraises APITimeoutError → the boundary
+    # translation in analyze_image wraps it as VLMTransientError (HTTP 503,
+    # retryable=True at the FastAPI handler).
+    from sci_data_logger.errors import VLMTransientError
+
+    with pytest.raises(VLMTransientError) as excinfo:
         client.analyze_image(image_path, "hi")
+    assert isinstance(excinfo.value.__cause__, openai.APITimeoutError)
 
     assert fake.calls == settings.qwen_max_retries == 3
 
@@ -192,8 +204,10 @@ def test_vlm_retry_gives_up_at_total_wallclock_cap(
     image_path = tmp_path / "stub.jpg"
     image_path.write_bytes(b"\xff\xd8\xff\xd9")
 
+    from sci_data_logger.errors import VLMTransientError
+
     start = time.monotonic()
-    with pytest.raises(openai.APITimeoutError):
+    with pytest.raises(VLMTransientError):
         client.analyze_image(image_path, "hi")
     elapsed = time.monotonic() - start
 

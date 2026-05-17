@@ -17,6 +17,13 @@ from tenacity import (
 )
 
 from sci_data_logger.config import Settings, get_settings
+from sci_data_logger.errors import (
+    VLMAuthenticationError,
+    VLMBadRequestError,
+    VLMGlobalConcurrencyTimeout,
+    VLMNotConfiguredError,
+    VLMTransientError,
+)
 from sci_data_logger.utils.json_tools import parse_first_json_object
 
 logger = logging.getLogger(__name__)
@@ -60,11 +67,12 @@ def _reset_global_semaphore() -> None:
         _global_semaphore = None
 
 
-class VLMGlobalConcurrencyTimeout(RuntimeError):
-    """Raised when a VLM dispatch couldn't acquire the global semaphore within
-    ``vlm_global_acquire_timeout`` seconds. Indicates sustained over-saturation
-    of the DashScope dispatch chokepoint — usually means too many concurrent
-    requests or too low a global cap for current load."""
+# VLMGlobalConcurrencyTimeout was previously defined here as a RuntimeError
+# subclass; it now lives in `sci_data_logger.errors` so the FastAPI global
+# exception handler can map it to 503 alongside the other VLM exceptions.
+# We re-export it for backward compat with any caller that imports from this
+# module directly.
+__all__ = ["QwenVLMClient", "VLMGlobalConcurrencyTimeout"]
 
 
 class QwenVLMClient:
@@ -79,7 +87,9 @@ class QwenVLMClient:
 
     def analyze_image(self, image_path: Path, prompt: str) -> dict[str, Any]:
         if not self.settings.dashscope_api_key:
-            raise RuntimeError("DASHSCOPE_API_KEY is not configured.")
+            raise VLMNotConfiguredError(
+                "DASHSCOPE_API_KEY is not configured."
+            )
 
         from openai import OpenAI
 
@@ -106,7 +116,29 @@ class QwenVLMClient:
                 max_side=self.settings.qwen_image_max_side,
                 size_threshold=self.settings.qwen_image_downscale_threshold_bytes,
             )
-            response = self._create_completion(client, image_url, prompt)
+            try:
+                response = self._create_completion(client, image_url, prompt)
+            # Translate openai library exceptions into our domain hierarchy
+            # so route handlers don't deal with library types and clients get
+            # stable HTTP statuses via the global exception handler.
+            # Order matters: AuthenticationError is a BadRequestError subclass
+            # in some openai SDK versions, so catch it first.
+            except openai.AuthenticationError as exc:
+                raise VLMAuthenticationError(
+                    "DashScope rejected the API key. Fix DASHSCOPE_API_KEY."
+                ) from exc
+            except openai.BadRequestError as exc:
+                raise VLMBadRequestError(
+                    f"DashScope rejected the request "
+                    f"(model={self.settings.qwen_vlm_model!r}): {exc}"
+                ) from exc
+            except _RETRYABLE_EXC as exc:
+                # tenacity has already burned the retry budget — surface as
+                # a transient error so the client knows a later retry MAY work.
+                raise VLMTransientError(
+                    f"Upstream VLM transient error after retries "
+                    f"({type(exc).__name__}): {exc}"
+                ) from exc
         finally:
             sem.release()
 
