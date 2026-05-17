@@ -97,12 +97,40 @@ class ExperimentOrchestrator:
 
         Returns a list aligned with image_paths; each element is the list of
         PagePackets that file expanded into (>=1 for PDFs).
+
+        When falling back to sequential execution (max_workers <= 1 or single
+        file) AND ``context_hint_enabled`` is True, thread the previous page's
+        text_blocks tail forward as a continuation hint for the VLM. Context
+        hints are only applied sequentially; with concurrency we can't define
+        a "previous page" deterministically.
         """
+        from sci_data_logger.services.document import _tail_of_text_blocks
+
+        image_paths = list(image_paths)
         if not image_paths:
             return []
-        max_workers = max(1, int(get_settings().vlm_concurrency or 1))
+        settings = get_settings()
+        max_workers = max(1, int(settings.vlm_concurrency or 1))
+
+        def _analyze(path, prev_tail):
+            fn = self.document_processor.analyze_pages
+            try:
+                return fn(path, prev_tail=prev_tail)
+            except TypeError:
+                return fn(path)
+
         if max_workers <= 1 or len(image_paths) <= 1:
-            return [self.document_processor.analyze_pages(p) for p in image_paths]
+            results: list[list[PagePacket]] = []
+            prev_tail: str | None = None
+            for p in image_paths:
+                page_list = _analyze(p, prev_tail if settings.context_hint_enabled else None)
+                results.append(page_list)
+                if settings.context_hint_enabled and page_list:
+                    prev_tail = _tail_of_text_blocks(
+                        page_list[-1].text_blocks, settings.context_hint_tail_chars
+                    )
+            return results
+        # Concurrent path: no defined predecessor, so don't thread context.
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
             return list(ex.map(self.document_processor.analyze_pages, image_paths))
 

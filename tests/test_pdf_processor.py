@@ -41,7 +41,7 @@ def test_analyze_pages_returns_one_packet_per_pdf_page(tmp_path: Path, monkeypat
     captured_paths: list[Path] = []
     original = dp._analyze_image
 
-    def stub_analyze_image(image_path: Path) -> PagePacket:
+    def stub_analyze_image(image_path: Path, prev_tail: str | None = None) -> PagePacket:
         captured_paths.append(image_path)
         # Return a minimal packet with the temp path as source — matches the real
         # implementation's behavior before _analyze_pdf rewrites source_path.

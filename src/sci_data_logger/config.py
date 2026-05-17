@@ -67,6 +67,14 @@ class Settings(BaseSettings):
         default=200,
         alias="SCI_DATA_LOGGER_PDF_RENDER_DPI",
     )
+    context_hint_enabled: bool = Field(
+        default=False,
+        alias="SCI_DATA_LOGGER_CONTEXT_HINT_ENABLED",
+    )
+    context_hint_tail_chars: int = Field(
+        default=400,
+        alias="SCI_DATA_LOGGER_CONTEXT_HINT_TAIL_CHARS",
+    )
 
     def ensure_storage(self) -> Path:
         self.storage_root.mkdir(parents=True, exist_ok=True)

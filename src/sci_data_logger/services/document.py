@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from sci_data_logger.config import get_settings
-from sci_data_logger.prompts import PAGE_ANALYSIS_PROMPT
+from sci_data_logger.prompts import PAGE_ANALYSIS_PROMPT, with_context_hint
 from sci_data_logger.schemas import (
     EventIO,
     EventOutput,
@@ -48,6 +48,21 @@ def _read_capture_time(image_path: Path) -> str | None:
         return None
 
 
+def _tail_of_text_blocks(text_blocks: list[str], n: int) -> str:
+    """Concatenate text_blocks with newlines and return the last n characters.
+
+    Returns empty string when there is no text.
+    """
+    if not text_blocks:
+        return ""
+    joined = "\n".join(str(b) for b in text_blocks if b)
+    if not joined:
+        return ""
+    if n <= 0:
+        return ""
+    return joined[-n:]
+
+
 class DocumentProcessor:
     """Convert notebook pages into page-level packets."""
 
@@ -59,9 +74,11 @@ class DocumentProcessor:
         self.vlm_client = vlm_client or QwenVLMClient()
         self.term_aliaser = term_aliaser or TermAliaser()
 
-    def analyze_page(self, source_path: Path) -> PagePacket:
+    def analyze_page(
+        self, source_path: Path, prev_tail: str | None = None
+    ) -> PagePacket:
         """Single-packet API kept for backward compatibility — returns first page only."""
-        packets = self.analyze_pages(source_path)
+        packets = self.analyze_pages(source_path, prev_tail=prev_tail)
         if packets:
             return packets[0]
         return PagePacket(
@@ -69,14 +86,22 @@ class DocumentProcessor:
             open_questions=[f"暂不支持该页面文件类型：{source_path.suffix or 'unknown'}"],
         )
 
-    def analyze_pages(self, source_path: Path) -> list[PagePacket]:
+    def analyze_pages(
+        self, source_path: Path, prev_tail: str | None = None
+    ) -> list[PagePacket]:
+        """Analyze a source file as a list of pages.
+
+        For single-page sources (images, text), returns a single-element list.
+        For PDFs, returns one packet per rendered page; prev_tail is threaded
+        forward between consecutive pages within the same PDF.
+        """
         suffix = source_path.suffix.lower()
         if suffix in IMAGE_SUFFIXES:
-            return [self._analyze_image(source_path)]
+            return [self._analyze_image(source_path, prev_tail=prev_tail)]
         if suffix in TEXT_SUFFIXES:
             return [self._analyze_text(source_path)]
         if suffix in PDF_SUFFIXES:
-            return self._analyze_pdf(source_path)
+            return self._analyze_pdf(source_path, prev_tail=prev_tail)
         return [
             PagePacket(
                 source_path=str(source_path),
@@ -84,7 +109,9 @@ class DocumentProcessor:
             )
         ]
 
-    def _analyze_pdf(self, pdf_path: Path) -> list[PagePacket]:
+    def _analyze_pdf(
+        self, pdf_path: Path, prev_tail: str | None = None
+    ) -> list[PagePacket]:
         import shutil
 
         import pypdfium2 as pdfium
@@ -95,13 +122,14 @@ class DocumentProcessor:
         packets: list[PagePacket] = []
         pdf = pdfium.PdfDocument(str(pdf_path))
         try:
+            current_tail: str | None = prev_tail
             for i in range(len(pdf)):
                 page = pdf[i]
                 pil_img = page.render(scale=scale).to_pil()
                 temp_path = tmp_dir / f"page_{i + 1}.jpg"
                 # JPEG can't store alpha; ensure RGB before save.
                 pil_img.convert("RGB").save(temp_path, format="JPEG", quality=92)
-                packet = self._analyze_image(temp_path)
+                packet = self._analyze_image(temp_path, prev_tail=current_tail)
                 # Rewrite source_path to point back at the originating PDF + page index
                 # so downstream consumers preserve traceability to the user's file.
                 packet.source_path = f"{pdf_path}#page={i + 1}"
@@ -114,13 +142,20 @@ class DocumentProcessor:
                     )
                 )
                 packets.append(packet)
+                # Thread tail forward across PDF pages when feature flag is on.
+                if settings.context_hint_enabled:
+                    current_tail = _tail_of_text_blocks(
+                        packet.text_blocks, settings.context_hint_tail_chars
+                    )
         finally:
             pdf.close()
             # Rendered page JPEGs were only needed as VLM inputs; drop the whole dir.
             shutil.rmtree(tmp_dir, ignore_errors=True)
         return packets
 
-    def _analyze_image(self, image_path: Path) -> PagePacket:
+    def _analyze_image(
+        self, image_path: Path, prev_tail: str | None = None
+    ) -> PagePacket:
         # Pre-process (deskew + autocontrast) before sending to the VLM.
         # On any Pillow failure we silently fall through to the original path —
         # preprocessing is an enhancement, not a hard requirement.
@@ -148,8 +183,11 @@ class DocumentProcessor:
                     "image preprocessing skipped for %s: %s", image_path, exc
                 )
 
+        effective_prompt = PAGE_ANALYSIS_PROMPT
+        if settings.context_hint_enabled and prev_tail:
+            effective_prompt = with_context_hint(PAGE_ANALYSIS_PROMPT, prev_tail)
         try:
-            model_result = self.vlm_client.analyze_image(effective_path, PAGE_ANALYSIS_PROMPT)
+            model_result = self.vlm_client.analyze_image(effective_path, effective_prompt)
         finally:
             if tmp_preproc_path is not None:
                 try:
