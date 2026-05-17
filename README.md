@@ -50,7 +50,7 @@
 | **混合存储** | 单表 `experiments`：scalar 列（experiment_id / project / group / status / timestamps）+ `record_json` blob（完整 pydantic `ExperimentRecord`）。SQLite JSON1 足以应付当前查询 |
 | **Schema 演化友好** | pydantic v2 model 是单一权威，DB 不预先 normalize，避免 Phase 0/1 阶段反复改表 |
 | **CRUD + 审核 API** | `GET/PATCH/DELETE /experiments/{id}`、`GET /experiments?status=...`、`POST /experiments/{id}/review-issues/{issue_id}/resolve` |
-| **审核状态机** | `ReviewStatus`：`draft → needs_review → reviewed → locked`（注意：当前 PATCH 还没强制状态迁移合法性，详见 [`docs/architecture.md`](docs/architecture.md) 路线图） |
+| **审核状态机** | `ReviewStatus`：`draft → needs_review → reviewed → locked`。`PATCH /status` 强制合法过渡，非法返回 409；`LOCKED` 为终态，`merge_record` 在 LOCKED 时静默拒收新页 |
 | **Material 跨页合并** | dedup key 仅用 `canonical_name`（不再带 role），同一物质多 role 累计到 `roles: list[str]`；event 解析中 auto-create 的 stub 会被 reconcile pass 合并回真实条目 |
 
 ---
@@ -284,7 +284,7 @@ class MyXRDAdapter:
 
 | 优先级 | 项 | 说明 |
 |---|---|---|
-| High | 审核状态机校验 | `PATCH /status` 当前只校验枚举值，未禁止 `locked → draft` 等回滚 |
+| ~~High~~ ✓ | 审核状态机校验 | 已修复：`PATCH /status` 用 `_ALLOWED_STATUS_TRANSITIONS` 强制合法过渡，非法返回 409；`merge_record` 在 LOCKED 时短路 |
 | High | Retry × 线程池整体超时 | `tenacity` 仅按 attempt 数停，没整体 wallclock 上限；高错误率时单请求可能挂数分钟 |
 | High | PDF 单页失败容错 | 当前一页 render 异常会拖垮整本 PDF，应改成 per-page try/except |
 | Medium | 上传扩展名白名单 | `/experiments/draft/upload` 任何 mimetype 都会落盘 |

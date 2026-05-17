@@ -290,12 +290,13 @@ def test_merge_preserves_locked_status(monkeypatch, app_with_temp_db):
     )
     assert r.status_code == 200, r.text
 
-    patch = client.patch(
-        "/experiments/EXP-LOCK/status",
-        json={"status": ReviewStatus.LOCKED.value},
-    )
-    assert patch.status_code == 200, patch.text
-    assert patch.json()["status"] == ReviewStatus.LOCKED.value
+    # LOCKED is terminal, but DRAFT → LOCKED is now blocked. Walk the legal path.
+    for next_status in (ReviewStatus.NEEDS_REVIEW, ReviewStatus.REVIEWED, ReviewStatus.LOCKED):
+        p = client.patch(
+            "/experiments/EXP-LOCK/status", json={"status": next_status.value}
+        )
+        assert p.status_code == 200, p.text
+        assert p.json()["status"] == next_status.value
 
     merge = client.post(
         "/experiments/draft/upload",
@@ -349,3 +350,48 @@ def test_upload_rejects_disallowed_instrument_extension(app_with_temp_db):
         files=[("instrument_files", ("bin.exe", b"MZ", "application/octet-stream"))],
     )
     assert resp.status_code == 415
+
+
+# ----- Status transition guard (Reviewer Round 2 follow-up) -----------
+
+def _create_minimal_draft(app, experiment_id: str) -> None:
+    from sci_data_logger.db import repository
+    from sci_data_logger.db.session import get_engine_cached, get_session_factory
+
+    factory = get_session_factory(get_engine_cached())
+    with factory() as session:
+        repository.save_record(session, ExperimentRecord(experiment_id=experiment_id))
+        session.commit()
+
+
+def test_status_transition_draft_to_locked_is_rejected(app_with_temp_db):
+    _create_minimal_draft(app_with_temp_db, "EXP-TR-1")
+    client = TestClient(app_with_temp_db)
+    resp = client.patch("/experiments/EXP-TR-1/status", json={"status": "locked"})
+    assert resp.status_code == 409
+    assert "illegal status transition" in resp.json()["detail"]
+    # Status must be unchanged in the persisted record.
+    assert client.get("/experiments/EXP-TR-1").json()["status"] == "draft"
+
+
+def test_status_transition_locked_to_draft_is_rejected(app_with_temp_db):
+    _create_minimal_draft(app_with_temp_db, "EXP-TR-2")
+    client = TestClient(app_with_temp_db)
+    # Walk legal path to LOCKED first.
+    for s in ("reviewed", "locked"):
+        assert client.patch(
+            "/experiments/EXP-TR-2/status", json={"status": s}
+        ).status_code == 200
+    # Now try to roll back.
+    resp = client.patch("/experiments/EXP-TR-2/status", json={"status": "draft"})
+    assert resp.status_code == 409
+    assert client.get("/experiments/EXP-TR-2").json()["status"] == "locked"
+
+
+def test_status_transition_valid_path_works(app_with_temp_db):
+    _create_minimal_draft(app_with_temp_db, "EXP-TR-3")
+    client = TestClient(app_with_temp_db)
+    for s in ("needs_review", "reviewed", "locked"):
+        resp = client.patch("/experiments/EXP-TR-3/status", json={"status": s})
+        assert resp.status_code == 200, f"{s}: {resp.text}"
+        assert resp.json()["status"] == s

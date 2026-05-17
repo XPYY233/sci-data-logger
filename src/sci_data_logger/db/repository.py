@@ -14,6 +14,23 @@ if TYPE_CHECKING:  # pragma: no cover - circular at runtime
 
 _TERMINAL_STATUSES = {ReviewStatus.REVIEWED, ReviewStatus.LOCKED}
 
+# Status-transition graph. LOCKED has no outgoing edges (terminal).
+# DRAFT can also go directly to REVIEWED for the trivial case where an empty
+# draft is reviewed-on-creation, but the typical path is DRAFT → NEEDS_REVIEW.
+_ALLOWED_STATUS_TRANSITIONS: dict[ReviewStatus, set[ReviewStatus]] = {
+    ReviewStatus.DRAFT: {ReviewStatus.NEEDS_REVIEW, ReviewStatus.REVIEWED},
+    ReviewStatus.NEEDS_REVIEW: {ReviewStatus.REVIEWED, ReviewStatus.DRAFT},
+    ReviewStatus.REVIEWED: {ReviewStatus.LOCKED, ReviewStatus.NEEDS_REVIEW},
+    ReviewStatus.LOCKED: set(),
+}
+
+
+class IllegalStatusTransition(ValueError):
+    """Raised by update_review_status when a transition is not in the allowlist.
+
+    The API layer converts this to HTTP 409.
+    """
+
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -99,6 +116,14 @@ def update_review_status(
     if row is None:
         return None
     record = ExperimentRecord.model_validate_json(row.record_json)
+    current = (
+        ReviewStatus(record.status) if not isinstance(record.status, ReviewStatus) else record.status
+    )
+    # No-op is fine; only block actual transitions not in the allowlist.
+    if new_status != current and new_status not in _ALLOWED_STATUS_TRANSITIONS.get(current, set()):
+        raise IllegalStatusTransition(
+            f"illegal status transition: {current.value} -> {new_status.value}"
+        )
     record.status = new_status
     row.record_json = record.model_dump_json()
     row.status = str(new_status)

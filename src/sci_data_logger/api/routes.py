@@ -199,7 +199,10 @@ def patch_experiment_status(
     body: StatusUpdateRequest,
     session: Session = Depends(get_session),
 ) -> ExperimentRecord:
-    record = repository.update_review_status(session, experiment_id, body.status)
+    try:
+        record = repository.update_review_status(session, experiment_id, body.status)
+    except repository.IllegalStatusTransition as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="experiment not found")
     return record
@@ -245,12 +248,17 @@ def runtime_config() -> dict[str, object]:
     }
 
 
-# Whitelist of suffixes accepted by upload endpoints. Kept in sync with the
-# suffixes that DocumentProcessor.analyze_pages / InstrumentAdapter actually
-# handle — anything else is rejected up front rather than silently written to
-# disk and producing a "unsupported file type" PagePacket downstream.
-_ALLOWED_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff", ".pdf", ".txt", ".md"}
-_ALLOWED_INSTRUMENT_SUFFIXES = {".csv", ".tsv", ".txt", ".md", ".log", ".report"}
+# Whitelist of suffixes accepted by upload endpoints, keyed by upload "kind".
+# Kept in sync with what DocumentProcessor.analyze_pages / InstrumentAdapter
+# actually handle — anything else is rejected up front (415) rather than
+# silently written to disk and producing a "unsupported file type" PagePacket
+# downstream. The "images" kind includes PDFs and text notes because the
+# document processor accepts those alongside raster images on the same input
+# channel.
+_UPLOAD_ALLOWLISTS: dict[str, set[str]] = {
+    "images": {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff", ".pdf", ".txt", ".md"},
+    "instrument_files": {".csv", ".tsv", ".txt", ".md", ".log", ".report"},
+}
 
 
 def _reject_disallowed_suffix(upload: UploadFile, allowed: set[str], kind: str) -> None:
@@ -269,7 +277,15 @@ def _save_uploads(
     experiment_id: str,
     kind: str,
 ) -> list[Path]:
-    allowed = _ALLOWED_IMAGE_SUFFIXES if kind == "images" else _ALLOWED_INSTRUMENT_SUFFIXES
+    try:
+        allowed = _UPLOAD_ALLOWLISTS[kind]
+    except KeyError as exc:
+        # Defensive: future callers passing a typo'd kind would silently get the
+        # wrong allowlist with the old branch-based selection.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"unknown upload kind '{kind}'",
+        ) from exc
     saved: list[Path] = []
     for upload in uploads or []:
         _reject_disallowed_suffix(upload, allowed, kind)
