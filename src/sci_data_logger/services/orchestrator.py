@@ -450,22 +450,54 @@ class ExperimentOrchestrator:
                             return ins
             return None
 
-        # Fallback: pages without extracted_events but with extracted_steps (legacy) -> upgrade
+        # Fallback: pages without extracted_events but with extracted_steps (legacy) -> upgrade.
+        # IMPORTANT: copy step.inputs / step.outputs into EventIO / EventOutput so
+        # _link_event_chains can later trace material flow. Also pull page-level
+        # signals (recipe_ratios, equations, sample_id) onto the first event of
+        # the page so they're not lost in the legacy path.
         for page in pages:
-            if not page.extracted_events and page.extracted_steps:
-                for step in sorted(page.extracted_steps, key=lambda s: s.sequence_index):
-                    page.extracted_events.append(ExperimentEvent(
-                        sequence_index=step.sequence_index,
-                        action_type=step.step_type,
-                        description=step.description,
-                        parameters=step.parameters,
-                        page_ref=page.page_id,
-                        evidence_refs=step.evidence_refs,
-                        confidence=step.confidence,
-                        observations=list(page.extracted_observations)
-                        if step.sequence_index == 1
-                        else [],
-                    ))
+            if page.extracted_events or not page.extracted_steps:
+                continue
+            sorted_steps = sorted(page.extracted_steps, key=lambda s: s.sequence_index)
+            # Page-level signals attach to the first event only, to avoid duplication.
+            first_recipe_ratio: dict | None = (
+                page.extracted_recipe_ratios[0]
+                if page.extracted_recipe_ratios and isinstance(page.extracted_recipe_ratios[0], dict)
+                else None
+            )
+            first_equation: str | None = (
+                page.extracted_equations[0] if page.extracted_equations else None
+            )
+            first_date_label: str | None = (
+                page.extracted_dates[0] if page.extracted_dates else None
+            )
+            first_sample_ref: str | None = (
+                page.sample_id if page.sample_id else None
+            )
+            first_instrument_ref: str | None = (
+                page.extracted_instruments[0] if page.extracted_instruments else None
+            )
+            for idx, step in enumerate(sorted_steps):
+                is_first = idx == 0
+                inputs = [EventIO(material_ref=str(ref)) for ref in step.inputs if ref]
+                outputs = [EventOutput(material_ref=str(ref)) for ref in step.outputs if ref]
+                page.extracted_events.append(ExperimentEvent(
+                    sequence_index=step.sequence_index,
+                    action_type=step.step_type,
+                    description=step.description,
+                    inputs=inputs,
+                    outputs=outputs,
+                    parameters=step.parameters,
+                    page_ref=page.page_id,
+                    evidence_refs=step.evidence_refs,
+                    confidence=step.confidence,
+                    observations=list(page.extracted_observations) if is_first else [],
+                    recipe_ratio=first_recipe_ratio if is_first else None,
+                    equation=first_equation if is_first else None,
+                    date_label=first_date_label if is_first else None,
+                    sample_ref=first_sample_ref if is_first else None,
+                    instrument_ref=first_instrument_ref if is_first else None,
+                ))
 
         # Infer a default year from any full YMD label across all pages/events.
         # If none exists we leave M/D-only events with date_iso=None rather than

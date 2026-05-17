@@ -165,3 +165,61 @@ def test_end_to_end_event_chains_via_orchestrator(tmp_path):
     assert e1.action_type == "calcine"
     assert e0.event_id in e1.derived_from
     assert e1.event_id in e0.produces_for
+
+
+def test_legacy_steps_upgrade_preserves_io_for_chain_linking(tmp_path):
+    """When VLM emits legacy `steps` instead of `events`, the orchestrator
+    upgrades them to ExperimentEvent. That upgrade must copy inputs/outputs so
+    _link_event_chains can find producer→consumer edges; otherwise Gap 6 fix
+    is dead under the legacy prompt path.
+    """
+    from sci_data_logger.schemas import ProtocolStep
+
+    page = PagePacket(source_path="legacy.jpg")
+    # Catalog provided so the references resolve.
+    page.raw_model_output = {
+        "json": {
+            "materials_catalog": [
+                {"canonical_name": "MnO2", "role": "precursor"},
+            ],
+        }
+    }
+    # Legacy steps with inputs/outputs but no `events`.
+    page.extracted_steps = [
+        ProtocolStep(
+            step_type="weigh",
+            sequence_index=1,
+            description="weigh MnO2",
+            inputs=[],
+            outputs=["MnO2"],
+        ),
+        ProtocolStep(
+            step_type="calcine",
+            sequence_index=2,
+            description="calcine MnO2",
+            inputs=["MnO2"],
+            outputs=[],
+        ),
+    ]
+
+    img = tmp_path / "legacy.jpg"
+    img.write_bytes(b"x")
+    orch = ExperimentOrchestrator(
+        document_processor=_FakeDocumentProcessor([page]),
+    )
+    record = orch.create_draft(
+        DraftExperimentRequest(experiment_id="EXP-LEGACY", image_paths=[img]),
+    )
+
+    assert len(record.events) == 2
+    e_weigh, e_calcine = record.events
+    assert e_weigh.action_type == "weigh"
+    assert e_calcine.action_type == "calcine"
+    # IO must have been copied from ProtocolStep.
+    assert [io.material_ref for io in e_weigh.outputs] != []
+    assert [io.material_ref for io in e_calcine.inputs] != []
+    # And the chain link must form.
+    assert e_weigh.event_id in e_calcine.derived_from, (
+        "step→event upgrade dropped material flow; _link_event_chains "
+        "produces nothing under legacy prompt"
+    )
