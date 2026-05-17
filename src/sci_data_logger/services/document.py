@@ -129,29 +129,62 @@ class DocumentProcessor:
         try:
             current_tail: str | None = prev_tail
             for i in range(len(pdf)):
-                page = pdf[i]
-                pil_img = page.render(scale=scale).to_pil()
-                temp_path = tmp_dir / f"page_{i + 1}.jpg"
-                # JPEG can't store alpha; ensure RGB before save.
-                pil_img.convert("RGB").save(temp_path, format="JPEG", quality=92)
-                packet = self._analyze_image(temp_path, prev_tail=current_tail)
-                # Rewrite source_path to point back at the originating PDF + page index
-                # so downstream consumers preserve traceability to the user's file.
-                packet.source_path = f"{pdf_path}#page={i + 1}"
-                packet.evidence_refs.append(
-                    EvidenceRef(
-                        source_type=SourceType.NOTEBOOK_IMAGE,
-                        source_id=packet.page_id,
-                        locator={"path": str(pdf_path), "pdf_page": i + 1},
-                        confidence=0.75,
+                try:
+                    page = pdf[i]
+                    pil_img = page.render(scale=scale).to_pil()
+                    temp_path = tmp_dir / f"page_{i + 1}.jpg"
+                    # JPEG can't store alpha; ensure RGB before save.
+                    pil_img.convert("RGB").save(temp_path, format="JPEG", quality=92)
+                    packet = self._analyze_image(temp_path, prev_tail=current_tail)
+                    # Rewrite source_path to point back at the originating PDF + page index
+                    # so downstream consumers preserve traceability to the user's file.
+                    packet.source_path = f"{pdf_path}#page={i + 1}"
+                    packet.evidence_refs.append(
+                        EvidenceRef(
+                            source_type=SourceType.NOTEBOOK_IMAGE,
+                            source_id=packet.page_id,
+                            locator={"path": str(pdf_path), "pdf_page": i + 1},
+                            confidence=0.75,
+                        )
                     )
-                )
-                packets.append(packet)
-                # Thread tail forward across PDF pages when feature flag is on.
-                if settings.context_hint_enabled:
-                    current_tail = _tail_of_text_blocks(
-                        packet.text_blocks, settings.context_hint_tail_chars
+                    packets.append(packet)
+                    # Thread tail forward across PDF pages when feature flag is on.
+                    # Only update from the last *successful* page, so a corrupt page
+                    # does not poison the context for subsequent pages.
+                    if settings.context_hint_enabled:
+                        current_tail = _tail_of_text_blocks(
+                            packet.text_blocks, settings.context_hint_tail_chars
+                        )
+                except Exception as exc:
+                    # Per-page fault tolerance: a single corrupt/unrenderable page
+                    # must not tank the whole document. Emit a skeleton packet
+                    # flagged for human review and continue.
+                    logger.warning(
+                        "PDF page %d of %s failed to render/analyze: %s",
+                        i + 1,
+                        pdf_path,
+                        exc,
                     )
+                    skeleton = PagePacket(
+                        source_path=f"{pdf_path}#page={i + 1}",
+                        page_types=["unknown"],
+                        open_questions=[
+                            f"PDF render failed for page {i + 1}: {exc}"
+                        ],
+                        warnings=[
+                            f"PDF page {i + 1} could not be processed; manual review required."
+                        ],
+                        review_required=True,
+                    )
+                    skeleton.evidence_refs.append(
+                        EvidenceRef(
+                            source_type=SourceType.NOTEBOOK_IMAGE,
+                            source_id=skeleton.page_id,
+                            locator={"path": str(pdf_path), "pdf_page": i + 1},
+                            confidence=0.0,
+                        )
+                    )
+                    packets.append(skeleton)
         finally:
             pdf.close()
             # Rendered page JPEGs were only needed as VLM inputs; drop the whole dir.

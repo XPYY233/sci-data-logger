@@ -69,6 +69,55 @@ def test_analyze_pages_returns_one_packet_per_pdf_page(tmp_path: Path, monkeypat
     assert captured_paths[0] != captured_paths[1]
 
 
+def _make_three_page_pdf(path: Path) -> None:
+    im1 = Image.new("RGB", (200, 280), (255, 255, 255))
+    im2 = Image.new("RGB", (200, 280), (240, 240, 240))
+    im3 = Image.new("RGB", (200, 280), (220, 220, 220))
+    im1.save(path, save_all=True, append_images=[im2, im3])
+
+
+def test_analyze_pdf_continues_on_per_page_render_failure(
+    tmp_path: Path, monkeypatch
+) -> None:
+    pdf_path = tmp_path / "flaky.pdf"
+    _make_three_page_pdf(pdf_path)
+
+    dp = DocumentProcessor(vlm_client=FakeVLMClient())
+
+    # Closure-held counter — instance method monkeypatch receives `self`
+    # as the first positional argument, matching the bound signature.
+    call_count = {"n": 0}
+
+    def flaky(self, image_path: Path, prev_tail: str | None = None) -> PagePacket:
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            raise RuntimeError("simulated render failure")
+        return PagePacket(source_path=str(image_path))
+
+    monkeypatch.setattr(DocumentProcessor, "_analyze_image", flaky)
+
+    packets = dp.analyze_pages(pdf_path)
+
+    assert len(packets) == 3
+    # Pages 1 and 3 succeeded — source_path rewritten to PDF#page=N
+    assert packets[0].source_path == f"{pdf_path}#page=1"
+    assert packets[0].review_required is False
+    assert packets[2].source_path == f"{pdf_path}#page=3"
+    assert packets[2].review_required is False
+    # Page 2 is the failure skeleton
+    assert packets[1].source_path == f"{pdf_path}#page=2"
+    assert packets[1].review_required is True
+    assert packets[1].page_types == ["unknown"]
+    assert any(
+        "PDF render failed for page 2" in q for q in packets[1].open_questions
+    )
+    # Failure skeleton still records evidence pointing back at the PDF
+    assert any(
+        ref.locator.get("pdf_page") == 2 and ref.locator.get("path") == str(pdf_path)
+        for ref in packets[1].evidence_refs
+    )
+
+
 def test_analyze_pages_for_image_returns_singleton_list(tmp_path: Path) -> None:
     image_path = tmp_path / "page.jpg"
     Image.new("RGB", (40, 40), (255, 255, 255)).save(image_path, format="JPEG")
