@@ -35,3 +35,40 @@ This file is read by Claude Code at session start. Keep it short and authoritati
 - Don't add OpenCV (kept the deskew path Pillow-only intentionally).
 - Don't add Alembic / migrations yet — schema still evolving in Phase 1/2.
 - Don't widen pyproject deps without a clear reason; current set is intentionally tight.
+
+## Subagent permissions
+
+`.claude/settings.local.json` already includes generic wildcards for the
+read-only / test / lint commands subagents typically need:
+
+- `Bash(git fetch|checkout|reset|rev-parse|log|diff|status|branch|show|...) *`
+- `Bash(PYTHONPATH=* python *)`, `Bash(PYTHONPATH=* python -m pytest *)`
+- `Bash(pytest *)`, `Bash(ruff *)`, `Bash(pip show *)`
+- `Bash(grep|rg|find|ls|cat|head|tail|wc *)`
+
+When you discover a subagent has been denied a specific Bash invocation,
+**add the generic wildcard pattern to `.claude/settings.local.json` and
+re-launch**, rather than rewriting the command. Wildcards survive across
+sessions and subagents.
+
+## Subagent topology (what works / what doesn't)
+
+Two rounds of empirical testing produced this convention:
+
+- **Foreground subagent (no `isolation`)** — Bash works (inherits parent
+  allowlist). Ideal for read-only roles: `code-reviewer`, `test-runner`,
+  surveys.
+- **Worktree-isolated subagent (`isolation: "worktree"`)** — branches from
+  some old ref (not parent HEAD), and runs with a stricter sandbox even
+  with broad wildcards in settings (the worktree's `.claude/` directory
+  is the same file, but the runtime applies extra constraints). Best for
+  **from-scratch parallel implementation** where each worker doesn't
+  depend on recent main-branch state. Tell them to `git fetch + checkout
+  + reset --hard origin/<feat-branch>` as Step 0 if they need recent code.
+- **In-tree work** — when you need to apply small follow-up fixes on top
+  of feat-branch HEAD, do it in the main worktree (parent agent or a
+  foreground subagent that the parent then commits for). Don't spawn a
+  worktree-isolated subagent for "small fix on current HEAD."
+
+See `reports/report_2026-05-17_schema-viewer-and-six-gap-fixes.md` §十 for
+the empirical history.
